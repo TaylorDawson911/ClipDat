@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Clippr (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Clippr (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

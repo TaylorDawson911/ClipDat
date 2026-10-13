@@ -1,0 +1,34 @@
+# Visual Studio and editor state
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# .NET and WinUI build output
+**/bin/
+**/obj/
+**/AppPackages/
+**/Generated Files/
+**/TestResults/
+
+# Native build output and downloaded vcpkg dependencies
+Clippr/native/build/
+Clippr/native/vcpkg_installed/
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.dll
+*.exe
+
+# Built release packages/dependencies (keep release scripts and documentation)
+Clippr/packaging/release/
+
+# Local recordings and temporary files
+*.tmp
+*.partial
+*.mp4
+*.mkv

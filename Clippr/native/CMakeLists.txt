@@ -1,0 +1,17 @@
+cmake_minimum_required(VERSION 3.25)
+project(ClipprCore LANGUAGES CXX)
+
+add_library(ClipprCore STATIC src/replay_buffer.cpp src/settings.cpp)
+target_compile_features(ClipprCore PUBLIC cxx_std_23)
+target_include_directories(ClipprCore PUBLIC include)
+target_compile_definitions(ClipprCore PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+if(MSVC)
+    target_compile_options(ClipprCore PRIVATE /W4 /permissive- /EHsc)
+endif()
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(ClipprReplayTests tests/replay_buffer_tests.cpp)
+    target_link_libraries(ClipprReplayTests PRIVATE ClipprCore)
+    add_test(NAME ReplayBuffer COMMAND ClipprReplayTests)
+endif()

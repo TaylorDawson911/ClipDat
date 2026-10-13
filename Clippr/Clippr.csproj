@@ -1,0 +1,88 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>Clippr</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <PublishProfile>win-$(Platform).pubxml</PublishProfile>
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\SplashScreen.scale-200.png" />
+    <Content Include="Assets\LockScreenLogo.scale-200.png" />
+    <Content Include="Assets\Square150x150Logo.scale-200.png" />
+    <Content Include="Assets\Square44x44Logo.scale-200.png" />
+    <Content Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png" />
+    <Content Include="Assets\StoreLogo.png" />
+    <Content Include="Assets\ClipprTray.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Wide310x150Logo.scale-200.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <!--
+    Defining the "Msix" ProjectCapability here allows the Single-project MSIX Packaging
+    Tools extension to be activated for this project even if the Windows App SDK Nuget
+    package has not yet been restored.
+  -->
+  <ItemGroup Condition="'$(DisableMsixProjectCapabilityAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <ProjectCapability Include="Msix" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Platform)' == 'x64'">
+    <Content Include="native\build\x64\ClipprCapture.dll" Link="ClipprCapture.dll" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="native\build\x64\av*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="BuildNativeCapture" BeforeTargets="GetCopyToOutputDirectoryItems" Condition="'$(Platform)' == 'x64'">
+    <Exec Command="&quot;$(ProjectDir)native\build-native.cmd&quot;" />
+  </Target>
+  <Target Name="CopyFfmpegRedistributables" AfterTargets="CopyFilesToOutputDirectory" Condition="'$(Platform)' == 'x64'">
+    <ItemGroup>
+      <FfmpegRuntime Include="$(ProjectDir)native\build\x64\av*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(FfmpegRuntime)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(FfmpegRuntime)" DestinationFolder="$(OutDir)AppX" SkipUnchangedFiles="true" Condition="Exists('$(OutDir)AppX')" />
+    <Copy SourceFiles="$(ProjectDir)THIRD_PARTY_NOTICES.md" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)THIRD_PARTY_NOTICES.md" DestinationFolder="$(OutDir)AppX" SkipUnchangedFiles="true" Condition="Exists('$(OutDir)AppX')" />
+    <Copy SourceFiles="$(ProjectDir)FFmpegBuildConfiguration.txt" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)FFmpegBuildConfiguration.txt" DestinationFolder="$(OutDir)AppX" SkipUnchangedFiles="true" Condition="Exists('$(OutDir)AppX')" />
+    <MakeDir Directories="$(OutDir)FFmpeg" Condition="Exists('$(ProjectDir)native\vcpkg_installed\x64-windows\share\ffmpeg\copyright')" />
+    <Copy SourceFiles="$(ProjectDir)native\vcpkg_installed\x64-windows\share\ffmpeg\copyright" DestinationFiles="$(OutDir)FFmpeg\LICENSE.txt" SkipUnchangedFiles="true" Condition="Exists('$(ProjectDir)native\vcpkg_installed\x64-windows\share\ffmpeg\copyright')" />
+    <MakeDir Directories="$(OutDir)AppX\FFmpeg" Condition="Exists('$(OutDir)AppX') and Exists('$(ProjectDir)native\vcpkg_installed\x64-windows\share\ffmpeg\copyright')" />
+    <Copy SourceFiles="$(ProjectDir)native\vcpkg_installed\x64-windows\share\ffmpeg\copyright" DestinationFiles="$(OutDir)AppX\FFmpeg\LICENSE.txt" SkipUnchangedFiles="true" Condition="Exists('$(OutDir)AppX') and Exists('$(ProjectDir)native\vcpkg_installed\x64-windows\share\ffmpeg\copyright')" />
+  </Target>
+  <Target Name="CopyTrayIconIntoAppPackage" AfterTargets="CopyFilesToOutputDirectory">
+    <MakeDir Directories="$(OutDir)AppX\Assets" Condition="Exists('$(OutDir)AppX')" />
+    <Copy SourceFiles="$(ProjectDir)Assets\ClipprTray.ico" DestinationFolder="$(OutDir)AppX\Assets"
+          SkipUnchangedFiles="true" Condition="Exists('$(OutDir)AppX')" />
+  </Target>
+
+  <!--
+    Defining the "HasPackageAndPublishMenuAddedByProject" property here allows the Solution
+    Explorer "Package and Publish" context menu entry to be enabled for this project even if
+    the Windows App SDK Nuget package has not yet been restored.
+  -->
+  <PropertyGroup Condition="'$(DisableHasPackageAndPublishMenuAddedByProject)'!='true' and '$(EnableMsixTooling)'=='true'">
+    <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
+  </PropertyGroup>
+
+  <!-- Publish Properties -->
+  <PropertyGroup>
+    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
+    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
+    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
+    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
+  </PropertyGroup>
+</Project>

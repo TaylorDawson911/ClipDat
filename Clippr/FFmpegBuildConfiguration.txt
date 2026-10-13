@@ -1,0 +1,9 @@
+Clippr FFmpeg build summary
+
+FFmpeg source release: 9.0.2 (vcpkg builtin registry at the baseline pinned in vcpkg-configuration.json)
+FFmpeg libraries: avformat, avcodec, avutil (shared DLLs; no static linking)
+FFmpeg command-line tools: disabled
+GPL and nonfree configure flags: not enabled
+External GPL codec libraries: libx264 and libx265 disabled
+
+The exact configure arguments are recorded by vcpkg in its FFmpeg build tree. A redistributed release must provide the corresponding FFmpeg source with vcpkg's applied patches, its license, and build configuration, and must preserve the rights required by the LGPL.
