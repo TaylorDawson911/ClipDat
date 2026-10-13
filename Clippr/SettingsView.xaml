@@ -114,6 +114,14 @@
                                 <TextBlock x:Name="ReliabilityHealthText" Text="Checking capture and storage health…" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                                 <TextBlock x:Name="ReliabilityErrorsText" Text="No recent errors." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <TextBlock Text="Technical errors are logged locally with a rotating size limit. Logs are never uploaded." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <Grid x:Name="AdvancedPreviewDiagnosticsRow" ColumnDefinitions="*,Auto" ColumnSpacing="12" Visibility="Collapsed" Margin="0,8,0,0">
+                                    <StackPanel Spacing="3" VerticalAlignment="Center">
+                                        <TextBlock Text="Show performance details in preview" />
+                                        <TextBlock Text="FPS, dropped frames, replay memory, encoder timing and hotkeys." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="ShowPreviewDiagnosticsCheck" Grid.Column="1" OnContent="" OffContent=""
+                                                  VerticalAlignment="Center" AutomationProperties.Name="Show performance details in preview" />
+                                </Grid>
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource SettingsCardStyle}">

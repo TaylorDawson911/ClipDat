@@ -114,6 +114,8 @@ public sealed partial class SettingsView : UserControl
         AutoCaptureCheck.IsOn = _draft.StartCaptureAutomatically;
         MinimizeToTrayCheck.IsOn = _draft.MinimizeToTrayOnClose;
         StartWithWindowsCheck.IsOn = _draft.StartWithWindows;
+        ShowPreviewDiagnosticsCheck.IsOn = _draft.ShowPreviewDiagnostics;
+        AdvancedToggle.IsOn = _draft.AdvancedModeEnabled;
         DesktopAudioCheck.IsOn = _draft.DesktopAudioEnabled;
         MicrophoneCheck.IsOn = _draft.MicrophoneAudioEnabled;
         NotificationSoundCheck.IsOn = _draft.SaveNotificationSound;
@@ -146,6 +148,7 @@ public sealed partial class SettingsView : UserControl
         AutoCaptureCheck.Toggled += OnSettingChanged;
         MinimizeToTrayCheck.Toggled += OnSettingChanged;
         StartWithWindowsCheck.Toggled += OnSettingChanged;
+        ShowPreviewDiagnosticsCheck.Toggled += OnSettingChanged;
         DesktopAudioCheck.Toggled += OnSettingChanged;
         MicrophoneCheck.Toggled += OnSettingChanged;
         NotificationSoundCheck.Toggled += OnSettingChanged;
@@ -435,12 +438,14 @@ public sealed partial class SettingsView : UserControl
     {
         var visibility = AdvancedToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
         AdvancedStartupRow.Visibility = visibility;
+        AdvancedPreviewDiagnosticsRow.Visibility = visibility;
         AdvancedEncoderRow.Visibility = visibility;
         AdvancedApplicationAudioCard.Visibility = visibility;
         AdvancedReplayMemoryRow.Visibility = visibility;
         AdvancedNotificationRow.Visibility = visibility;
         AdvancedHotkeyRow.Visibility = visibility;
         AdvancedFeedbackActions.Visibility = visibility;
+        if (_ready && !_applying) UpdateDraftAndDirtyState();
     }
 
     private void OnSettingChanged(object sender, object e)
@@ -470,6 +475,8 @@ public sealed partial class SettingsView : UserControl
         _draft.StartCaptureAutomatically = AutoCaptureCheck.IsOn;
         _draft.MinimizeToTrayOnClose = MinimizeToTrayCheck.IsOn;
         _draft.StartWithWindows = StartWithWindowsCheck.IsOn;
+        _draft.AdvancedModeEnabled = AdvancedToggle.IsOn;
+        _draft.ShowPreviewDiagnostics = ShowPreviewDiagnosticsCheck.IsOn;
         _draft.VoiceCommandsEnabled = VoiceCommandsCheck.IsOn;
         _draft.VoiceWakePhrase = VoiceWakePhraseBox.Text;
         _draft.VoiceConfidenceThreshold = GetTag(VoiceConfidenceCombo);

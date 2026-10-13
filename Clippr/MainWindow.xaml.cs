@@ -131,9 +131,6 @@ namespace Clippr
         {
             InitializeComponent();
             _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
-#if DEBUG
-            DiagnosticsMessage.Visibility = Visibility.Visible;
-#endif
             var workArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(
                 AppWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Primary).WorkArea;
             var windowWidth = Math.Min(1260, Math.Max(1, workArea.Width - 32));
@@ -143,6 +140,7 @@ namespace Clippr
                 workArea.Y + (workArea.Height - windowHeight) / 2,
                 windowWidth, windowHeight));
             _settings = ClipprSettings.Load();
+            ApplyPreviewDetailMode();
             HotkeyLabel.Text = $"Clip {_settings.Hotkey.Replace("+", " + ", StringComparison.Ordinal)} · Screenshot {_settings.ScreenshotHotkey.Replace("+", " + ", StringComparison.Ordinal)}";
             _replaySeconds = (uint)_settings.ClipLengthSeconds;
             _replayRamMb = (ulong)_settings.ReplayMemoryLimitMb;
@@ -431,6 +429,7 @@ namespace Clippr
             var wasScreenCapturing = _activeSource == CaptureSource.Screen;
             await ApplyStartupPreferenceAsync(settings.StartWithWindows);
             _settings = settings;
+            ApplyPreviewDetailMode();
             HotkeyLabel.Text = $"Clip {settings.Hotkey.Replace("+", " + ", StringComparison.Ordinal)} · Screenshot {settings.ScreenshotHotkey.Replace("+", " + ", StringComparison.Ordinal)}";
             _clipFormat = settings.VideoFormat;
             _clipFolder = settings.ClipFolder;
@@ -842,9 +841,7 @@ namespace Clippr
                 UpdateScreenshotStatus();
                 UpdateStorageHealth();
                 CheckAudioCaptureHealth();
-#if DEBUG
-                UpdateDiagnostics();
-#endif
+                if (DetailedPreviewEnabled) UpdateDiagnostics();
                 UpdateClippingButton(_clippingEnabled &&
                     (NativeCapture.ClipprGetReplayStatus(_capture).State is 1 or 2));
             }
@@ -1121,7 +1118,16 @@ namespace Clippr
             _ => $"Screenshot failed · 0x{error:X8}"
         };
 
-#if DEBUG
+        private bool DetailedPreviewEnabled => _settings.AdvancedModeEnabled && _settings.ShowPreviewDiagnostics;
+
+        private void ApplyPreviewDetailMode()
+        {
+            var visibility = DetailedPreviewEnabled ? Visibility.Visible : Visibility.Collapsed;
+            DiagnosticsMessage.Visibility = visibility;
+            HotkeyHintBorder.Visibility = visibility;
+            if (!DetailedPreviewEnabled && !_recording) EncodingMessage.Text = "";
+        }
+
         private void UpdateDiagnostics()
         {
             if (_capture == IntPtr.Zero || _closing) return;
@@ -1155,15 +1161,20 @@ namespace Clippr
                 $"Encode {encoding.AverageWriteLatencyUs / 1000.0:0.0}/{encoding.MaxWriteLatencyUs / 1000.0:0.0} ms avg/max · " +
                 $"{backend} · Save {saveDuration}";
         }
-#endif
+
+        private string ReadyReplayText(NativeCapture.ReplayStatus status) => DetailedPreviewEnabled
+            ? $"Replay ready · {_replaySeconds}s · {status.RamBytes / 1048576} MB RAM"
+            : "Replay ready";
 
         private void UpdateEncodingStatus()
         {
             var status = NativeCapture.ClipprGetEncodingStatus(_capture);
             if (status.State == 1) EncodingMessage.Text = "Starting hardware encoder…";
             else if (status.State == 2)
-                EncodingMessage.Text = $"Recording · {status.FramesEncoded} frames" +
-                                       (status.FramesDropped > 0 ? $" · {status.FramesDropped} queue drops" : "");
+                EncodingMessage.Text = DetailedPreviewEnabled
+                    ? $"Recording · {status.FramesEncoded} frames" +
+                      (status.FramesDropped > 0 ? $" · {status.FramesDropped} queue drops" : "")
+                    : "Recording";
             else if (status.State == 4) EncodingMessage.Text = "Finishing recording…";
             else if (status.State == 3)
             {
@@ -1208,7 +1219,7 @@ namespace Clippr
             {
                 var completedCount = status.SavesCompleted - _replayCompletedSeen;
                 _replayCompletedSeen = status.SavesCompleted;
-                ReplayMessage.Text = $"Replay ready · {_replaySeconds}s · {status.RamBytes / 1048576} MB RAM";
+                ReplayMessage.Text = ReadyReplayText(status);
                 var savedAny = false;
                 while (completedCount-- > 0)
                 {
@@ -1243,7 +1254,7 @@ namespace Clippr
             else if (status.State == 3) ReplayMessage.Text = $"Replay unavailable: 0x{status.ErrorCode:X8}";
             else if (status.State == 2 && status.Packets == 0) ReplayMessage.Text = "Waiting for replay keyframe…";
             else if (status.State == 2 && DateTime.Now >= _replayMessageUntil)
-                ReplayMessage.Text = $"Replay ready · {_replaySeconds}s · {status.RamBytes / 1048576} MB RAM";
+                ReplayMessage.Text = ReadyReplayText(status);
             else if (status.State == 1) ReplayMessage.Text = "Starting replay encoder…";
             else if (status.State == 0) ReplayMessage.Text = _clippingEnabled
                 ? "Replay paused · select a source" : "Clipping stopped · preview remains live";
@@ -1937,8 +1948,10 @@ namespace Clippr
         private void ShowRecordingOptions()
         {
             if (_recording) return;
-            EncodingMessage.Text = $"{_recordingFps} FPS · {_recordingBitrate / 1_000_000} Mbps · " +
-                                   (_recordingFullHd ? "1080p" : "source resolution");
+            EncodingMessage.Text = DetailedPreviewEnabled
+                ? $"{_recordingFps} FPS · {_recordingBitrate / 1_000_000} Mbps · " +
+                  (_recordingFullHd ? "1080p" : "source resolution")
+                : "";
         }
 
         private async Task ReconnectDisplayAsync()

@@ -31,7 +31,7 @@ namespace
         L"copyScreenshotToClipboard", L"screenshotNotificationSound", L"notificationStyle",
         L"minimizeToTrayOnClose", L"minimumFreeDiskSpaceGb", L"voiceCommandsEnabled",
         L"voiceWakePhrase", L"voiceConfidenceThreshold", L"voiceCooldownSeconds",
-        L"voiceCommandPhrases"
+        L"voiceCommandPhrases", L"advancedModeEnabled", L"showPreviewDiagnostics"
     };
 
     std::filesystem::path KnownFolderPath(REFKNOWNFOLDERID folder, DWORD flags)

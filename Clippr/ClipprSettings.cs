@@ -60,6 +60,8 @@ public sealed class ClipprSettings
     public bool StartCaptureAutomatically { get; set; } = true;
     public int ReplayMemoryLimitMb { get; set; } = 128;
     public int MinimumFreeDiskSpaceGb { get; set; } = 2;
+    public bool AdvancedModeEnabled { get; set; }
+    public bool ShowPreviewDiagnostics { get; set; }
     public bool VoiceCommandsEnabled { get; set; }
     public string VoiceWakePhrase { get; set; } = "";
     public string VoiceConfidenceThreshold { get; set; } = "High";
