@@ -172,7 +172,7 @@ public sealed partial class SettingsView : UserControl
 
     private void PopulateVoiceCommandRows()
     {
-        foreach (var category in new[] { "Clipping", "Recording", "General" })
+        foreach (var category in new[] { "Clipping", "Recording" })
         {
             var group = new StackPanel { Spacing = 4 };
             var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(3, 0, 0, 3) };
@@ -340,7 +340,7 @@ public sealed partial class SettingsView : UserControl
     private void UpdateVoiceFilterButtons()
     {
         foreach (var button in new[] { VoiceFilterAllButton, VoiceFilterClippingButton,
-                     VoiceFilterRecordingButton, VoiceFilterGeneralButton })
+                     VoiceFilterRecordingButton })
         {
             var selected = Equals(button.Tag, _voiceCommandCategory);
             button.Background = new SolidColorBrush(selected

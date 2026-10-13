@@ -241,7 +241,7 @@
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
-                            <Border Grid.Column="1" Style="{StaticResource SettingsCardStyle}" VerticalAlignment="Top">
+                            <Border Grid.Column="1" Style="{StaticResource SettingsCardStyle}" VerticalAlignment="Stretch">
                                 <StackPanel Spacing="11">
                                     <TextBlock Text="Available commands" FontSize="17" FontWeight="SemiBold" />
                                     <TextBox x:Name="VoiceCommandSearchBox" PlaceholderText="Search commands…" AutomationProperties.Name="Search voice commands" />
@@ -249,7 +249,6 @@
                                         <Button x:Name="VoiceFilterAllButton" Content="All" Click="OnVoiceFilterClick" Tag="All" FontSize="11" Padding="10,4" CornerRadius="12" />
                                         <Button x:Name="VoiceFilterClippingButton" Content="Clipping" Click="OnVoiceFilterClick" Tag="Clipping" FontSize="11" Padding="10,4" CornerRadius="12" />
                                         <Button x:Name="VoiceFilterRecordingButton" Content="Recording" Click="OnVoiceFilterClick" Tag="Recording" FontSize="11" Padding="10,4" CornerRadius="12" />
-                                        <Button x:Name="VoiceFilterGeneralButton" Content="Other" Click="OnVoiceFilterClick" Tag="General" FontSize="11" Padding="10,4" CornerRadius="12" />
                                     </StackPanel>
                                     <StackPanel x:Name="VoiceCommandList" Spacing="7" />
                                 </StackPanel>

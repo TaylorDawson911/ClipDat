@@ -267,20 +267,16 @@ namespace Clippr
             SetVoiceStatus(action switch
             {
                 "save-configured" => "Saving the configured replay duration",
-                "save-30" => "Saving the last 30 seconds",
-                "save-60" => "Saving the last 60 seconds",
                 "screenshot" => "Taking a screenshot",
                 "start" => "Starting clipping",
                 "stop" => "Stopping clipping",
-                "open" => "Opening ClipDat",
-                "settings" => "Opening settings",
                 _ => "Voice command received"
             });
             _ = _dispatcherQueue?.TryEnqueue(() => _ = ExecuteVoiceCommandAsync(action));
         }
 
         private static uint GetReplayRetentionSeconds(ClipprSettings settings) =>
-            (uint)Math.Max(settings.ClipLengthSeconds, settings.VoiceCommandsEnabled ? 60 : settings.ClipLengthSeconds);
+            (uint)settings.ClipLengthSeconds;
 
         private async Task ExecuteVoiceCommandAsync(string action)
         {
@@ -288,16 +284,9 @@ namespace Clippr
             switch (action)
             {
                 case "save-configured": await SaveReplayAsync(); break;
-                case "save-30": await SaveReplayAsync(30); break;
-                case "save-60": await SaveReplayAsync(60); break;
                 case "screenshot": await TakeScreenshotAsync(); break;
                 case "start": await SetClippingAsync(true); break;
                 case "stop": await SetClippingAsync(false); break;
-                case "open": RestoreFromTray(); break;
-                case "settings":
-                    RestoreFromTray();
-                    OnSettingsClick(SettingsButton, new RoutedEventArgs());
-                    break;
             }
         }
 

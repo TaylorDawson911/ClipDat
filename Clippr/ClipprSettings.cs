@@ -143,6 +143,10 @@ public sealed class ClipprSettings
         VoiceWakePhrase = (VoiceWakePhrase ?? "").Trim();
         if (VoiceWakePhrase.Length > 32 || VoiceWakePhrase.Any(c => !char.IsLetterOrDigit(c) && c != ' ')) VoiceWakePhrase = "";
         VoiceCommandPhrases ??= VoiceCommandCatalog.Defaults();
+        var supportedVoiceCommandKeys = VoiceCommandCatalog.Commands.Select(command => command.Key).ToHashSet(StringComparer.Ordinal);
+        VoiceCommandPhrases = VoiceCommandPhrases
+            .Where(pair => supportedVoiceCommandKeys.Contains(pair.Key))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         foreach (var command in VoiceCommandCatalog.Commands)
         {
             if (!VoiceCommandPhrases.TryGetValue(command.Key, out var phrase) || !VoiceCommandCatalog.IsValid(phrase))
