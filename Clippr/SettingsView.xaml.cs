@@ -203,17 +203,18 @@ public sealed partial class SettingsView : UserControl
             foreach (var command in VoiceCommandCatalog.Commands.Where(item => item.Category == category))
             {
                 var row = new Border { Style = (Style)Resources["VoiceCommandRowStyle"] };
-                var layout = new Grid { ColumnSpacing = 4, RowSpacing = 5 };
+                var layout = new Grid { ColumnSpacing = 8 };
                 layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                var phraseAndEdit = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
+                var phraseSlot = new Grid { VerticalAlignment = VerticalAlignment.Center };
 
                 var phrase = new TextBlock
                 {
                     Text = _draft.VoiceCommandPhrases[command.Key],
                     FontSize = 12,
+                    MaxWidth = 120,
                     TextWrapping = TextWrapping.Wrap,
                     VerticalAlignment = VerticalAlignment.Center
                 };
@@ -225,49 +226,57 @@ public sealed partial class SettingsView : UserControl
                     VerticalAlignment = VerticalAlignment.Center,
                     Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 170, 180, 190))
                 };
-                layout.Children.Add(phrase);
+                phraseSlot.Children.Add(phrase);
+
+                var editor = new TextBox
+                {
+                    Style = (Style)Resources["VoicePhraseEditorStyle"],
+                    Text = _draft.VoiceCommandPhrases[command.Key],
+                    MaxLength = 60,
+                    Width = Math.Clamp(_draft.VoiceCommandPhrases[command.Key].Length * 6.5 + 12, 58, 120),
+                    Height = 23,
+                    Visibility = Visibility.Collapsed
+                };
+                AutomationProperties.SetName(editor, $"Phrase for {command.DefaultPhrase}");
+                phraseSlot.Children.Add(editor);
+                phraseAndEdit.Children.Add(phraseSlot);
 
                 var edit = new Button
                 {
                     Content = new FontIcon { Glyph = "\uE70F", FontSize = 11 },
-                    Width = 24, Height = 24, Padding = new Thickness(0),
+                    Width = 20, Height = 22, Padding = new Thickness(0),
                     Background = new SolidColorBrush(ColorHelper.FromArgb(0, 0, 0, 0)),
                     BorderThickness = new Thickness(0),
                     VerticalAlignment = VerticalAlignment.Center
                 };
                 AutomationProperties.SetName(edit, $"Edit {command.DefaultPhrase} voice command");
                 ToolTipService.SetToolTip(edit, "Edit phrase");
-                Grid.SetColumn(edit, 1);
-                layout.Children.Add(edit);
-                Grid.SetColumn(description, 2);
+                phraseAndEdit.Children.Add(edit);
+                layout.Children.Add(phraseAndEdit);
+                Grid.SetColumn(description, 1);
                 layout.Children.Add(description);
-
-                var editor = new TextBox
-                {
-                    Text = _draft.VoiceCommandPhrases[command.Key],
-                    MaxLength = 60,
-                    Visibility = Visibility.Collapsed,
-                    PlaceholderText = "Say this phrase to run the command"
-                };
-                AutomationProperties.SetName(editor, $"Phrase for {command.DefaultPhrase}");
-                Grid.SetRow(editor, 1);
-                Grid.SetColumnSpan(editor, 3);
-                layout.Children.Add(editor);
                 row.Child = layout;
                 group.Children.Add(row);
                 _voiceCommandRows[command.Key] = row;
 
                 var original = editor.Text;
+                var originalStatus = SettingsStatus.Text;
+                Brush? originalStatusBrush = SettingsStatus.Foreground;
+                var cancelledEdit = false;
                 edit.Click += (_, _) =>
                 {
+                    cancelledEdit = false;
                     original = _draft.VoiceCommandPhrases[command.Key];
+                    originalStatus = SettingsStatus.Text;
+                    originalStatusBrush = SettingsStatus.Foreground;
+                    phrase.Visibility = Visibility.Collapsed;
                     editor.Visibility = Visibility.Visible;
                     editor.Focus(FocusState.Programmatic);
                     editor.SelectAll();
                 };
                 editor.TextChanged += (_, _) =>
                 {
-                    if (!_ready || _applying) return;
+                    if (!_ready || _applying || cancelledEdit) return;
                     _draft.VoiceCommandPhrases[command.Key] = editor.Text;
                     phrase.Text = string.IsNullOrWhiteSpace(editor.Text) ? "Enter a phrase" : editor.Text.Trim();
                     UpdateDraftAndDirtyState();
@@ -276,17 +285,28 @@ public sealed partial class SettingsView : UserControl
                 {
                     if (args.Key == VirtualKey.Escape)
                     {
+                        cancelledEdit = true;
                         editor.Text = original;
+                        _draft.VoiceCommandPhrases[command.Key] = original;
+                        phrase.Text = original;
                         editor.Visibility = Visibility.Collapsed;
+                        phrase.Visibility = Visibility.Visible;
+                        SettingsStatus.Text = originalStatus;
+                        SettingsStatus.Foreground = originalStatusBrush;
                         args.Handled = true;
                     }
                     else if (args.Key == VirtualKey.Enter)
                     {
                         editor.Visibility = Visibility.Collapsed;
+                        phrase.Visibility = Visibility.Visible;
                         args.Handled = true;
                     }
                 };
-                editor.LostFocus += (_, _) => editor.Visibility = Visibility.Collapsed;
+                editor.LostFocus += (_, _) =>
+                {
+                    editor.Visibility = Visibility.Collapsed;
+                    phrase.Visibility = Visibility.Visible;
+                };
             }
         }
     }
