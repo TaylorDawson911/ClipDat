@@ -25,6 +25,9 @@
             <NavigationViewItem Content="Capture" Tag="Capture">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE7F4;" /></NavigationViewItem.Icon>
             </NavigationViewItem>
+            <NavigationViewItem Content="Voice" Tag="Voice">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE720;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
             <NavigationViewItem Content="Audio" Tag="Audio">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE767;" /></NavigationViewItem.Icon>
             </NavigationViewItem>
@@ -93,31 +96,6 @@
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource SettingsCardStyle}">
-                            <StackPanel Spacing="10">
-                                <TextBlock Text="Voice commands" FontSize="16" FontWeight="SemiBold" />
-                                <Grid ColumnDefinitions="*,Auto" MinHeight="42">
-                                    <TextBlock Text="Enable voice commands" VerticalAlignment="Center" />
-                                    <ToggleSwitch x:Name="VoiceCommandsCheck" Grid.Column="1" OnContent="" OffContent=""
-                                                  VerticalAlignment="Center" AutomationProperties.Name="Enable local voice commands" />
-                                </Grid>
-                                <TextBlock Text="When enabled, ClipDat listens locally for the commands below. It does not save or upload microphone audio. Windows speech language support and microphone access are required." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Optional wake phrase" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <TextBox x:Name="VoiceWakePhraseBox" Grid.Column="1" PlaceholderText="Off · or try ClipDat" MaxLength="32" />
-                                </Grid>
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Minimum confidence" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="VoiceConfidenceCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Command cooldown" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <NumberBox x:Name="VoiceCooldownBox" Grid.Column="1" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" />
-                                </Grid>
-                                <TextBlock Text="Uses the current Windows default microphone. Windows.Media.SpeechRecognition does not let desktop apps choose a separate microphone for recognition; your recording input selection remains independent." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock x:Name="VoiceSettingsStatus" Text="Voice commands are off." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource SettingsCardStyle}">
                             <StackPanel Spacing="13">
                                 <TextBlock Text="Recording" FontSize="16" FontWeight="SemiBold" />
                                 <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
@@ -136,6 +114,59 @@
                                     </StackPanel>
                                 </Grid>
                                 <TextBlock Text="Resolution and frame rate changes apply to the next recording. Stop the current recording first." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <ScrollViewer x:Name="VoicePage" Grid.Row="0" Margin="28,24,28,16" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel Spacing="16" MaxWidth="720" HorizontalAlignment="Stretch">
+                        <StackPanel Spacing="3" Margin="0,0,0,2">
+                            <TextBlock Text="Voice commands" FontSize="28" FontWeight="SemiBold" />
+                            <TextBlock Text="Control ClipDat with on-device Windows speech recognition." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <StackPanel Spacing="10">
+                                <Grid ColumnDefinitions="*,Auto" MinHeight="42">
+                                    <StackPanel Spacing="3" VerticalAlignment="Center">
+                                        <TextBlock Text="Enable voice commands" FontSize="16" FontWeight="SemiBold" />
+                                        <TextBlock Text="Listening is opt-in and stays on this PC. ClipDat does not save or upload microphone audio." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="VoiceCommandsCheck" Grid.Column="1" OnContent="" OffContent=""
+                                                  VerticalAlignment="Center" AutomationProperties.Name="Enable local voice commands" />
+                                </Grid>
+                                <TextBlock Text="Requires microphone permission and a Windows speech language with offline recognition support." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="Available commands" FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock Text="Clip that · Save clip · Clip last 30 seconds · Clip last 60 seconds · Take screenshot · Start recording · Stop recording" TextWrapping="Wrap" />
+                                <TextBlock Text="Uses the current Windows default microphone. Windows speech recognition does not let desktop apps choose a separate microphone; your recording input selection remains independent." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Listening status" FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock x:Name="VoiceSettingsStatus" Text="Voice commands are off." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="AdvancedVoiceCard" Style="{StaticResource SettingsCardStyle}" Visibility="Collapsed">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Voice command options" FontSize="16" FontWeight="SemiBold" />
+                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
+                                    <TextBlock Text="Optional wake phrase" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                    <TextBox x:Name="VoiceWakePhraseBox" Grid.Column="1" PlaceholderText="Off · or try ClipDat" MaxLength="32" />
+                                </Grid>
+                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
+                                    <TextBlock Text="Minimum confidence" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                    <ComboBox x:Name="VoiceConfidenceCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
+                                </Grid>
+                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
+                                    <TextBlock Text="Command cooldown" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                    <NumberBox x:Name="VoiceCooldownBox" Grid.Column="1" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" />
+                                </Grid>
+                                <TextBlock Text="When set, say the wake phrase before each command. A longer cooldown helps ignore repeated recognitions." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

@@ -199,6 +199,7 @@ public sealed partial class SettingsView : UserControl
         if (args.SelectedItem is not NavigationViewItem item) return;
         _pendingPage = item.Tag?.ToString() switch
         {
+            "Voice" => VoicePage,
             "Audio" => AudioPage,
             "Output" => OutputPage,
             "Feedback" => FeedbackPage,
@@ -265,6 +266,7 @@ public sealed partial class SettingsView : UserControl
         AdvancedNotificationRow.Visibility = visibility;
         AdvancedHotkeyRow.Visibility = visibility;
         AdvancedFeedbackActions.Visibility = visibility;
+        AdvancedVoiceCard.Visibility = visibility;
     }
 
     private void OnSettingChanged(object sender, object e)

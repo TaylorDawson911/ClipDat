@@ -88,7 +88,7 @@ The C# to native interface is declared in `Clippr\NativeCapture.cs` and `Clippr\
 
 ## Privacy and sharing
 
-Capture, audio processing, replay buffering, and export are local. Voice recognition remains off until the user enables it in Capture settings; it uses Windows' on-device list grammar and does not store audio. Microphone access can be denied by Windows privacy settings.
+Capture, audio processing, replay buffering, and export are local. Voice recognition remains off until the user enables it in Settings > Voice; it uses Windows' on-device list grammar and does not store audio. Microphone access can be denied by Windows privacy settings.
 
 Public direct clip sharing is **not available**. The optional local HTTP component can serve only explicitly selected files over loopback for local use; it does not provide a public URL, router mapping, cloud upload, or relay. The user interface must not describe loopback access as an externally reachable share link.
 

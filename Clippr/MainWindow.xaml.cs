@@ -125,10 +125,6 @@ namespace Clippr
         [DllImport("user32.dll", ExactSpelling = true)]
         private static extern bool MessageBeep(uint type);
 
-        [DllImport("user32.dll", ExactSpelling = true, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool SetWindowDisplayAffinity(IntPtr window, uint affinity);
-
         public MainWindow()
         {
             InitializeComponent();
@@ -136,9 +132,6 @@ namespace Clippr
 #if DEBUG
             DiagnosticsMessage.Visibility = Visibility.Visible;
 #endif
-            // The monitor source includes our own window. Excluding it avoids a
-            // recursive preview that becomes unstable when the window is maximized.
-            _ = SetWindowDisplayAffinity(WinRT.Interop.WindowNative.GetWindowHandle(this), 0x11);
             var workArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(
                 AppWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Primary).WorkArea;
             var windowWidth = Math.Min(1260, Math.Max(1, workArea.Width - 32));
