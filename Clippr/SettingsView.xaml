@@ -88,65 +88,174 @@
                     </LinearGradientBrush>
                 </Grid.Background>
                 <ScrollViewer x:Name="CapturePage" Grid.Row="0" Margin="28,24,28,16" VerticalScrollBarVisibility="Auto">
-                    <StackPanel Spacing="16" MaxWidth="720" HorizontalAlignment="Stretch">
-                        <StackPanel Spacing="3" Margin="0,0,0,2">
-                            <TextBlock Text="Capture" FontSize="28" FontWeight="SemiBold" />
-                            <TextBlock Text="Choose what ClipDat captures and how recordings are encoded." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
+                    <StackPanel Spacing="14" MaxWidth="1220" HorizontalAlignment="Stretch">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="20" Margin="0,2,0,4">
+                            <Border Width="64" Height="64" CornerRadius="15" Background="#263C55" BorderBrush="#3F6589" BorderThickness="1" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe Fluent Icons" FontSize="30" Foreground="White" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                <TextBlock Text="Capture" FontSize="28" FontWeight="SemiBold" />
+                                <TextBlock Text="Choose what ClipDat captures and how recordings are encoded." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Grid>
+
                         <Border Style="{StaticResource SettingsCardStyle}">
                             <StackPanel Spacing="13">
-                                <TextBlock Text="Capture source" FontSize="16" FontWeight="SemiBold" />
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Capture mode" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="CaptureModeCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="Capture source" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="Select what to capture and where." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="14">
+                                    <Grid ColumnDefinitions="48,*" ColumnSpacing="12" VerticalAlignment="Center">
+                                        <Border Width="48" Height="54" CornerRadius="10" Background="#2B3138" VerticalAlignment="Top">
+                                            <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe Fluent Icons" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Spacing="5">
+                                            <TextBlock Text="Capture mode" FontSize="13" FontWeight="SemiBold" />
+                                            <ComboBox x:Name="CaptureModeCombo" HorizontalAlignment="Stretch" />
+                                            <TextBlock Text="What to capture." FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <Grid Grid.Column="1" ColumnDefinitions="48,*" ColumnSpacing="12" VerticalAlignment="Center">
+                                        <Border Width="48" Height="54" CornerRadius="10" Background="#2B3138" VerticalAlignment="Top">
+                                            <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe Fluent Icons" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Spacing="5">
+                                            <TextBlock Text="Display" FontSize="13" FontWeight="SemiBold" />
+                                            <ComboBox x:Name="PreferredDisplayCombo" HorizontalAlignment="Stretch" />
+                                            <TextBlock Text="Which display to record." FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <Grid Grid.Column="2" ColumnDefinitions="48,*" ColumnSpacing="12" VerticalAlignment="Center">
+                                        <Border Width="48" Height="54" CornerRadius="10" Background="#2B3138" VerticalAlignment="Top">
+                                            <FontIcon Glyph="&#xE71D;" FontFamily="Segoe Fluent Icons" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Spacing="5">
+                                            <TextBlock Text="Application (optional)" FontSize="13" FontWeight="SemiBold" />
+                                            <ComboBox x:Name="PreferredApplicationCombo" HorizontalAlignment="Stretch" />
+                                            <TextBlock Text="Record a specific application instead." FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Grid>
                                 </Grid>
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Preferred display" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="PreferredDisplayCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Preferred application" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="PreferredApplicationCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
-                                <Grid ColumnDefinitions="*,Auto" MinHeight="42">
-                                    <TextBlock Text="Start capture when ClipDat opens" VerticalAlignment="Center" />
-                                    <ToggleSwitch x:Name="AutoCaptureCheck" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center" AutomationProperties.Name="Start capture when ClipDat opens" />
-                                </Grid>
-                                <Grid ColumnDefinitions="*,Auto" MinHeight="42">
-                                    <TextBlock Text="Minimize to notification area when closing" VerticalAlignment="Center" />
-                                    <ToggleSwitch x:Name="MinimizeToTrayCheck" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center" AutomationProperties.Name="Minimize ClipDat to the notification area when closing" />
-                                </Grid>
-                                <TextBlock Text="ClipDat keeps capture running while hidden. Choose Exit ClipDat from the tray menu to stop capture and quit." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <Grid x:Name="AdvancedStartupRow" ColumnDefinitions="*,Auto" MinHeight="42" Visibility="Collapsed">
-                                    <TextBlock Text="Start ClipDat when I sign in" VerticalAlignment="Center" />
-                                    <ToggleSwitch x:Name="StartWithWindowsCheck" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center" AutomationProperties.Name="Start ClipDat when I sign in" />
-                                </Grid>
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Minimum free disk space" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="MinimumFreeSpaceCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
-                                <TextBlock Text="ClipDat pauses disk-backed replay buffering and warns before saves when either the replay spool or clip drive reaches this reserve." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
                         </Border>
+
                         <Border Style="{StaticResource SettingsCardStyle}">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="Recording health" FontSize="16" FontWeight="SemiBold" />
-                                <TextBlock x:Name="ReliabilityHealthText" Text="Checking capture and storage health…" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                <TextBlock x:Name="ReliabilityErrorsText" Text="No recent errors." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock Text="Technical errors are logged locally with a rotating size limit. Logs are never uploaded." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <Grid x:Name="AdvancedPreviewDiagnosticsRow" ColumnDefinitions="*,Auto" ColumnSpacing="12" Visibility="Collapsed" Margin="0,8,0,0">
-                                    <StackPanel Spacing="3" VerticalAlignment="Center">
-                                        <TextBlock Text="Show performance details in preview" />
-                                        <TextBlock Text="FPS, dropped frames, replay memory, encoder timing and hotkeys." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <StackPanel Spacing="13">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="Behaviour" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="Control when capture starts and how ClipDat behaves." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="18">
+                                    <StackPanel Spacing="8">
+                                        <Border Background="#22282F" CornerRadius="9" Padding="12">
+                                            <Grid ColumnDefinitions="44,*,Auto" ColumnSpacing="12">
+                                                <Border Width="44" Height="44" CornerRadius="9" Background="#2B3138">
+                                                    <FontIcon Glyph="&#xE768;" FontFamily="Segoe Fluent Icons" FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                                    <TextBlock Text="Start capture when ClipDat opens" TextWrapping="Wrap" />
+                                                    <TextBlock Text="Begin recording automatically" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                </StackPanel>
+                                                <ToggleSwitch x:Name="AutoCaptureCheck" Grid.Column="2" OnContent="" OffContent="" VerticalAlignment="Center" AutomationProperties.Name="Start capture when ClipDat opens" />
+                                            </Grid>
+                                        </Border>
+                                        <Border x:Name="AdvancedStartupRow" Background="#22282F" CornerRadius="9" Padding="12" Visibility="Collapsed">
+                                            <Grid ColumnDefinitions="44,*,Auto" ColumnSpacing="12">
+                                                <Border Width="44" Height="44" CornerRadius="9" Background="#2B3138">
+                                                    <FontIcon Glyph="&#xE8D7;" FontFamily="Segoe Fluent Icons" FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                                    <TextBlock Text="Start ClipDat when I sign in" TextWrapping="Wrap" />
+                                                    <TextBlock Text="Launch automatically with Windows" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                </StackPanel>
+                                                <ToggleSwitch x:Name="StartWithWindowsCheck" Grid.Column="2" OnContent="" OffContent="" VerticalAlignment="Center" AutomationProperties.Name="Start ClipDat when I sign in" />
+                                            </Grid>
+                                        </Border>
                                     </StackPanel>
-                                    <ToggleSwitch x:Name="ShowPreviewDiagnosticsCheck" Grid.Column="1" OnContent="" OffContent=""
-                                                  VerticalAlignment="Center" AutomationProperties.Name="Show performance details in preview" />
+                                    <Border Grid.Column="1" Width="1" Background="#39424B" Margin="0,4" />
+                                    <StackPanel Grid.Column="2" Spacing="8">
+                                        <Border Background="#22282F" CornerRadius="9" Padding="12">
+                                            <Grid ColumnDefinitions="44,*,Auto" ColumnSpacing="12">
+                                                <Border Width="44" Height="44" CornerRadius="9" Background="#2B3138">
+                                                    <FontIcon Glyph="&#xE718;" FontFamily="Segoe Fluent Icons" FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                                    <TextBlock Text="Minimize to notification area" TextWrapping="Wrap" />
+                                                    <TextBlock Text="Keep running in the background" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                </StackPanel>
+                                                <ToggleSwitch x:Name="MinimizeToTrayCheck" Grid.Column="2" OnContent="" OffContent="" VerticalAlignment="Center" AutomationProperties.Name="Minimize ClipDat to the notification area when closing" />
+                                            </Grid>
+                                        </Border>
+                                        <Border Background="#22282F" CornerRadius="9" Padding="12">
+                                            <Grid ColumnDefinitions="44,*" ColumnSpacing="12">
+                                                <Border Width="44" Height="44" CornerRadius="9" Background="#2B3138">
+                                                    <FontIcon Glyph="&#xE890;" FontFamily="Segoe Fluent Icons" FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                                    <TextBlock Text="When hidden to the notification area" TextWrapping="Wrap" />
+                                                    <TextBlock Text="Capture continues until you choose Exit ClipDat." FontSize="11" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </StackPanel>
                                 </Grid>
                             </StackPanel>
                         </Border>
+
                         <Border Style="{StaticResource SettingsCardStyle}">
                             <StackPanel Spacing="13">
-                                <TextBlock Text="Recording" FontSize="16" FontWeight="SemiBold" />
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="Storage" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="Manage disk space and view capture health." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="18">
+                                    <Grid ColumnDefinitions="48,*" ColumnSpacing="12" VerticalAlignment="Center">
+                                        <Border Width="48" Height="54" CornerRadius="10" Background="#2B3138" VerticalAlignment="Top">
+                                            <FontIcon Glyph="&#xE80F;" FontFamily="Segoe Fluent Icons" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Spacing="6">
+                                            <TextBlock Text="Minimum free disk space" FontWeight="SemiBold" />
+                                            <ComboBox x:Name="MinimumFreeSpaceCombo" Width="210" HorizontalAlignment="Left" />
+                                            <TextBlock Text="Pause disk-backed replay buffering and warn when free space is below this reserve." FontSize="11" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <Border Grid.Column="1" Width="1" Background="#39424B" Margin="0,4" />
+                                    <Grid Grid.Column="2" ColumnDefinitions="48,*" ColumnSpacing="12" VerticalAlignment="Center">
+                                        <Border Width="48" Height="54" CornerRadius="10" Background="#2B3138" VerticalAlignment="Top">
+                                            <FontIcon Glyph="&#xE9D9;" FontFamily="Segoe Fluent Icons" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Spacing="6">
+                                            <TextBlock Text="Recording health" FontWeight="SemiBold" />
+                                            <TextBlock x:Name="ReliabilityHealthText" Text="Checking capture and storage health…" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                            <TextBlock x:Name="ReliabilityErrorsText" Text="No recent errors." TextWrapping="Wrap" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Text="Technical errors are logged locally with a rotating size limit. Logs are never uploaded." TextWrapping="Wrap" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border x:Name="AdvancedPreviewDiagnosticsCard" Style="{StaticResource SettingsCardStyle}" Visibility="Collapsed">
+                            <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="12">
+                                <Border Width="48" Height="48" CornerRadius="10" Background="#2B3138">
+                                    <FontIcon Glyph="&#xE9D9;" FontFamily="Segoe Fluent Icons" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                    <TextBlock Text="Preview" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="Choose what information is shown in the capture preview." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Text="FPS, dropped frames, memory usage, encoder timing and hotkeys." FontSize="11" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <ToggleSwitch x:Name="ShowPreviewDiagnosticsCheck" Grid.Column="2" OnContent="" OffContent="" VerticalAlignment="Center" AutomationProperties.Name="Show performance details in preview" />
+                            </Grid>
+                        </Border>
+
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <StackPanel Spacing="13">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="Recording" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="Choose recording quality and output detail." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
                                 <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
                                     <TextBlock Text="Resolution" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                                     <ComboBox x:Name="ResolutionCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />

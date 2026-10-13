@@ -482,7 +482,7 @@ public sealed partial class SettingsView : UserControl
     {
         var visibility = AdvancedToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
         AdvancedStartupRow.Visibility = visibility;
-        AdvancedPreviewDiagnosticsRow.Visibility = visibility;
+        AdvancedPreviewDiagnosticsCard.Visibility = visibility;
         AdvancedEncoderRow.Visibility = visibility;
         AdvancedApplicationAudioCard.Visibility = visibility;
         AdvancedReplayMemoryRow.Visibility = visibility;
