@@ -229,7 +229,7 @@
                                                 <TextBlock Text="Minimum confidence" />
                                                 <TextBlock Text="Ignore uncertain matches" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                             </StackPanel>
-                                            <ComboBox x:Name="VoiceConfidenceCombo" Grid.Column="1" Width="155" />
+                                            <ComboBox x:Name="VoiceConfidenceCombo" Grid.Column="1" Width="190" />
                                         </Grid>
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                                             <StackPanel Spacing="2" VerticalAlignment="Center">

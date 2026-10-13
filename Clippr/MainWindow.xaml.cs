@@ -131,6 +131,7 @@ namespace Clippr
         public MainWindow()
         {
             InitializeComponent();
+            AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "ClipprTray.ico"));
             _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
             var workArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(
                 AppWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Primary).WorkArea;
@@ -294,16 +295,16 @@ namespace Clippr
 
         private void OnSettingsClick(object sender, RoutedEventArgs e)
         {
-            if (_settingsView is not null) return;
+            if (_settingsView is not null || _settingsTransitioning) return;
             _settingsView = new SettingsView(this, _settings);
             SettingsHost.Children.Add(_settingsView);
-            CaptureToolbar.Visibility = Visibility.Collapsed;
-            CaptureContent.Visibility = Visibility.Collapsed;
             SettingsHost.Visibility = Visibility.Visible;
             BackToCaptureButton.Visibility = Visibility.Visible;
             SettingsButton.Visibility = Visibility.Collapsed;
             WindowTitleText.Text = "Settings";
             WindowTitleText.Margin = new Thickness(8, 0, 0, 0);
+            _settingsTransitioning = true;
+            _ = AnimateSettingsOpenAsync();
         }
 
         internal void RestoreFromTray()
@@ -382,21 +383,96 @@ namespace Clippr
 
         private async void OnBackToCaptureClick(object sender, RoutedEventArgs e)
         {
+            if (_settingsTransitioning) return;
             if (_settingsView is not null && !await _settingsView.ConfirmLeaveAsync(exiting: false)) return;
-            ReturnToCapture();
+            if (_settingsView is null) return;
+            _settingsTransitioning = true;
+            await AnimateSettingsCloseAsync();
         }
 
-        private void ReturnToCapture()
+        private bool _settingsTransitioning;
+
+        private async Task AnimateSettingsOpenAsync()
         {
+            CaptureToolbar.Visibility = Visibility.Visible;
+            CaptureContent.Visibility = Visibility.Visible;
+            await AnimateSettingsSurfaceAsync(showSettings: true);
+            CaptureToolbar.Visibility = Visibility.Collapsed;
+            CaptureContent.Visibility = Visibility.Collapsed;
+            SetOpacity(CaptureToolbar, 1);
+            SetOpacity(CaptureContent, 1);
+            _settingsTransitioning = false;
+        }
+
+        private async Task AnimateSettingsCloseAsync()
+        {
+            CaptureToolbar.Visibility = Visibility.Visible;
+            CaptureContent.Visibility = Visibility.Visible;
+            await AnimateSettingsSurfaceAsync(showSettings: false);
             SettingsHost.Visibility = Visibility.Collapsed;
             SettingsHost.Children.Clear();
             _settingsView = null;
-            CaptureToolbar.Visibility = Visibility.Visible;
-            CaptureContent.Visibility = Visibility.Visible;
             BackToCaptureButton.Visibility = Visibility.Collapsed;
             SettingsButton.Visibility = Visibility.Visible;
             WindowTitleText.Text = "ClipDat";
             WindowTitleText.Margin = new Thickness(16, 0, 0, 0);
+            SetOpacity(SettingsHost, 1);
+            SetOpacity(CaptureToolbar, 1);
+            SetOpacity(CaptureContent, 1);
+            _settingsTransitioning = false;
+        }
+
+        private async Task AnimateSettingsSurfaceAsync(bool showSettings)
+        {
+            var settingsVisual = ElementCompositionPreview.GetElementVisual(SettingsHost);
+            var toolbarVisual = ElementCompositionPreview.GetElementVisual(CaptureToolbar);
+            var captureVisual = ElementCompositionPreview.GetElementVisual(CaptureContent);
+            var compositor = settingsVisual.Compositor;
+            var duration = TimeSpan.FromMilliseconds(220);
+            var easing = compositor.CreateCubicBezierEasingFunction(new Vector2(0.2f, 0.8f), new Vector2(0.2f, 1f));
+
+            settingsVisual.StopAnimation("Opacity");
+            settingsVisual.StopAnimation("Offset");
+            toolbarVisual.StopAnimation("Opacity");
+            captureVisual.StopAnimation("Opacity");
+            if (showSettings)
+            {
+                settingsVisual.Opacity = 0;
+                settingsVisual.Offset = new Vector3(0, 14, 0);
+                toolbarVisual.Opacity = 1;
+                captureVisual.Opacity = 1;
+            }
+            else
+            {
+                settingsVisual.Opacity = 1;
+                settingsVisual.Offset = Vector3.Zero;
+                toolbarVisual.Opacity = 0;
+                captureVisual.Opacity = 0;
+            }
+
+            var settingsFade = compositor.CreateScalarKeyFrameAnimation();
+            settingsFade.Duration = duration;
+            settingsFade.InsertKeyFrame(1, showSettings ? 1 : 0, easing);
+            var settingsSlide = compositor.CreateVector3KeyFrameAnimation();
+            settingsSlide.Duration = duration;
+            settingsSlide.InsertKeyFrame(1, showSettings ? Vector3.Zero : new Vector3(0, -10, 0), easing);
+            var captureFade = compositor.CreateScalarKeyFrameAnimation();
+            captureFade.Duration = duration;
+            captureFade.InsertKeyFrame(1, showSettings ? 0 : 1, easing);
+            settingsVisual.StartAnimation("Opacity", settingsFade);
+            settingsVisual.StartAnimation("Offset", settingsSlide);
+            toolbarVisual.StartAnimation("Opacity", captureFade);
+            captureVisual.StartAnimation("Opacity", captureFade);
+            await Task.Delay(duration);
+        }
+
+        private static void SetOpacity(FrameworkElement element, float opacity)
+        {
+            var visual = ElementCompositionPreview.GetElementVisual(element);
+            visual.StopAnimation("Opacity");
+            visual.StopAnimation("Offset");
+            visual.Opacity = opacity;
+            visual.Offset = Vector3.Zero;
         }
 
         private async Task ExitApplicationAsync()
