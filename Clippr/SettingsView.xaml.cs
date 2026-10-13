@@ -24,6 +24,7 @@ public sealed partial class SettingsView : UserControl
 {
     private readonly MainWindow _mainWindow;
     private readonly ClipprSettings _draft;
+    private ClipprSettings _savedSnapshot;
     private bool _ready;
     private bool _applying;
     private bool _transitioning;
@@ -39,6 +40,7 @@ public sealed partial class SettingsView : UserControl
         InitializeComponent();
         _mainWindow = mainWindow;
         _draft = settings.Clone();
+        _savedSnapshot = settings.Clone();
         SettingsNavigation.RequestedTheme = ElementTheme.Dark;
         PopulateControls();
         WireEvents();
@@ -247,7 +249,8 @@ public sealed partial class SettingsView : UserControl
                     Width = 20, Height = 22, Padding = new Thickness(0),
                     Background = new SolidColorBrush(ColorHelper.FromArgb(0, 0, 0, 0)),
                     BorderThickness = new Thickness(0),
-                    VerticalAlignment = VerticalAlignment.Center
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Visibility = Visibility.Collapsed
                 };
                 AutomationProperties.SetName(edit, $"Edit {command.DefaultPhrase} voice command");
                 ToolTipService.SetToolTip(edit, "Edit phrase");
@@ -263,16 +266,37 @@ public sealed partial class SettingsView : UserControl
                 var originalStatus = SettingsStatus.Text;
                 Brush? originalStatusBrush = SettingsStatus.Foreground;
                 var cancelledEdit = false;
-                edit.Click += (_, _) =>
+                void BeginEditing()
                 {
                     cancelledEdit = false;
                     original = _draft.VoiceCommandPhrases[command.Key];
                     originalStatus = SettingsStatus.Text;
                     originalStatusBrush = SettingsStatus.Foreground;
                     phrase.Visibility = Visibility.Collapsed;
+                    edit.Visibility = Visibility.Collapsed;
                     editor.Visibility = Visibility.Visible;
                     editor.Focus(FocusState.Programmatic);
                     editor.SelectAll();
+                }
+                edit.Click += (_, _) => BeginEditing();
+                phrase.Tapped += (_, _) => BeginEditing();
+                phrase.PointerEntered += (_, _) =>
+                {
+                    phrase.TextDecorations = Windows.UI.Text.TextDecorations.Underline;
+                    phrase.Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 115, 185, 245));
+                };
+                phrase.PointerExited += (_, _) =>
+                {
+                    phrase.TextDecorations = Windows.UI.Text.TextDecorations.None;
+                    phrase.ClearValue(TextBlock.ForegroundProperty);
+                };
+                phraseAndEdit.PointerEntered += (_, _) =>
+                {
+                    if (editor.Visibility != Visibility.Visible) edit.Visibility = Visibility.Visible;
+                };
+                phraseAndEdit.PointerExited += (_, _) =>
+                {
+                    if (editor.Visibility != Visibility.Visible) edit.Visibility = Visibility.Collapsed;
                 };
                 editor.TextChanged += (_, _) =>
                 {
@@ -585,14 +609,19 @@ public sealed partial class SettingsView : UserControl
 
     private async void OnSaveSettingsClick(object sender, RoutedEventArgs e)
     {
-        if (!_ready || _applying) return;
+        await SaveSettingsAsync();
+    }
+
+    private async Task<bool> SaveSettingsAsync()
+    {
+        if (!_ready || _applying) return false;
         UpdateDraftAndDirtyState();
         var validationError = _draft.Validate();
         if (validationError is not null)
         {
             SettingsStatus.Text = validationError;
             SettingsStatus.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(ColorHelper.FromArgb(255, 237, 142, 143));
-            return;
+            return false;
         }
         var persisted = false;
         try
@@ -600,6 +629,7 @@ public sealed partial class SettingsView : UserControl
             Directory.CreateDirectory(_draft.ClipFolder);
             _draft.SaveAtomicJson();
             persisted = true;
+            _savedSnapshot = _draft.Clone();
             _applying = true;
             SettingsNavigation.IsEnabled = false;
             SaveSettingsButton.IsEnabled = false;
@@ -607,6 +637,7 @@ public sealed partial class SettingsView : UserControl
             ClipFolderBox.Text = _draft.ClipFolder;
             SettingsStatus.Text = "Settings saved · recording changes apply to the next recording.";
             SettingsStatus.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(ColorHelper.FromArgb(255, 174, 182, 188));
+            return true;
         }
         catch (Exception ex)
         {
@@ -619,6 +650,53 @@ public sealed partial class SettingsView : UserControl
             _applying = false;
             SettingsNavigation.IsEnabled = true;
         }
+        return false;
+    }
+
+    internal int GetUnsavedOptionCount()
+    {
+        var previousStatus = SettingsStatus.Text;
+        var previousBrush = SettingsStatus.Foreground;
+        UpdateDraftAndDirtyState();
+        var count = 0;
+        foreach (var property in typeof(ClipprSettings).GetProperties(BindingFlags.Instance | BindingFlags.Public))
+        {
+            if (property.Name == nameof(ClipprSettings.VoiceCommandPhrases)) continue;
+            if (!Equals(property.GetValue(_draft), property.GetValue(_savedSnapshot))) count++;
+        }
+        var phraseKeys = _draft.VoiceCommandPhrases.Keys.Union(_savedSnapshot.VoiceCommandPhrases.Keys, StringComparer.Ordinal);
+        foreach (var key in phraseKeys)
+        {
+            _draft.VoiceCommandPhrases.TryGetValue(key, out var current);
+            _savedSnapshot.VoiceCommandPhrases.TryGetValue(key, out var saved);
+            if (!string.Equals(current, saved, StringComparison.Ordinal)) count++;
+        }
+        if (count == 0)
+        {
+            SettingsStatus.Text = previousStatus;
+            SettingsStatus.Foreground = previousBrush;
+        }
+        return count;
+    }
+
+    internal async Task<bool> ConfirmLeaveAsync(bool exiting)
+    {
+        var count = GetUnsavedOptionCount();
+        if (count == 0) return true;
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = exiting ? "Are you sure you want to exit?" : "Leave settings without saving?",
+            Content = $"You have {count} unsaved {(count == 1 ? "option" : "options")}. If you continue, these changes will be discarded.",
+            PrimaryButtonText = "Save changes",
+            SecondaryButtonText = "Discard",
+            CloseButtonText = "Keep editing",
+            DefaultButton = ContentDialogButton.Primary
+        };
+        var result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.Primary)
+            return await SaveSettingsAsync() && GetUnsavedOptionCount() == 0;
+        return result == ContentDialogResult.Secondary;
     }
 
     private async void OnBrowseFolderClick(object sender, RoutedEventArgs e)

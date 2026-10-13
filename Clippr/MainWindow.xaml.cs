@@ -57,6 +57,7 @@ namespace Clippr
         private int _windowRefreshGeneration;
         private bool _closing;
         private bool _exitRequested;
+        private bool _exitPromptActive;
         private bool _capturePaused;
         private bool _recovering;
         private bool _reconnecting;
@@ -201,6 +202,7 @@ namespace Clippr
                 catch (Exception ex) { ReplayMessage.Text = $"Could not save audio levels: {ex.Message}"; }
             };
             Closed += OnWindowClosed;
+            AppWindow.Closing += OnAppWindowClosing;
             if (_settings.VoiceCommandsEnabled) _ = ConfigureVoiceCommandsAsync(_settings);
             UpdateSettingsPosition();
         }
@@ -334,10 +336,7 @@ namespace Clippr
                     OnSettingsClick(SettingsButton, new RoutedEventArgs());
                     break;
                 case TrayCommand.Exit:
-                    _exitRequested = true;
-                    _tray?.Dispose();
-                    _tray = null;
-                    Close();
+                    _ = ExitApplicationAsync();
                     break;
             }
         }
@@ -381,7 +380,13 @@ namespace Clippr
             }
         }
 
-        private void OnBackToCaptureClick(object sender, RoutedEventArgs e)
+        private async void OnBackToCaptureClick(object sender, RoutedEventArgs e)
+        {
+            if (_settingsView is not null && !await _settingsView.ConfirmLeaveAsync(exiting: false)) return;
+            ReturnToCapture();
+        }
+
+        private void ReturnToCapture()
         {
             SettingsHost.Visibility = Visibility.Collapsed;
             SettingsHost.Children.Clear();
@@ -392,6 +397,41 @@ namespace Clippr
             SettingsButton.Visibility = Visibility.Visible;
             WindowTitleText.Text = "ClipDat";
             WindowTitleText.Margin = new Thickness(16, 0, 0, 0);
+        }
+
+        private async Task ExitApplicationAsync()
+        {
+            if (_settingsView is not null && !await _settingsView.ConfirmLeaveAsync(exiting: true)) return;
+            _exitRequested = true;
+            _tray?.Dispose();
+            _tray = null;
+            Close();
+        }
+
+        private async void OnAppWindowClosing(Microsoft.UI.Windowing.AppWindow sender,
+            Microsoft.UI.Windowing.AppWindowClosingEventArgs args)
+        {
+            if (_exitRequested || _settingsView is null) return;
+            if (_exitPromptActive)
+            {
+                args.Cancel = true;
+                return;
+            }
+            if (_settingsView.GetUnsavedOptionCount() == 0) return;
+            args.Cancel = true;
+            _exitPromptActive = true;
+            try
+            {
+                if (!await _settingsView.ConfirmLeaveAsync(exiting: true)) return;
+                _exitRequested = true;
+                _tray?.Dispose();
+                _tray = null;
+                Close();
+            }
+            finally
+            {
+                _exitPromptActive = false;
+            }
         }
 
         private void OnSettingsHostKeyDown(object sender, KeyRoutedEventArgs e)
