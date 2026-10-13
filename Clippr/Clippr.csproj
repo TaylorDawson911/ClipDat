@@ -14,6 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="Assets\ClipDatMark.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\SplashScreen.scale-200.png" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />
     <Content Include="Assets\Square150x150Logo.scale-200.png" />
@@ -63,9 +64,11 @@
     <MakeDir Directories="$(OutDir)AppX\FFmpeg" Condition="Exists('$(OutDir)AppX') and Exists('$(ProjectDir)native\vcpkg_installed\x64-windows\share\ffmpeg\copyright')" />
     <Copy SourceFiles="$(ProjectDir)native\vcpkg_installed\x64-windows\share\ffmpeg\copyright" DestinationFiles="$(OutDir)AppX\FFmpeg\LICENSE.txt" SkipUnchangedFiles="true" Condition="Exists('$(OutDir)AppX') and Exists('$(ProjectDir)native\vcpkg_installed\x64-windows\share\ffmpeg\copyright')" />
   </Target>
-  <Target Name="CopyTrayIconIntoAppPackage" AfterTargets="CopyFilesToOutputDirectory">
+  <Target Name="CopyBrandingIntoAppPackage" AfterTargets="CopyFilesToOutputDirectory">
     <MakeDir Directories="$(OutDir)AppX\Assets" Condition="Exists('$(OutDir)AppX')" />
     <Copy SourceFiles="$(ProjectDir)Assets\ClipprTray.ico" DestinationFolder="$(OutDir)AppX\Assets"
+          SkipUnchangedFiles="true" Condition="Exists('$(OutDir)AppX')" />
+    <Copy SourceFiles="$(ProjectDir)Assets\ClipDatMark.png" DestinationFolder="$(OutDir)AppX\Assets"
           SkipUnchangedFiles="true" Condition="Exists('$(OutDir)AppX')" />
   </Target>
 

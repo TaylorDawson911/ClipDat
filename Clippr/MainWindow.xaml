@@ -75,7 +75,10 @@
                         ToolTipService.ToolTip="Back to capture" AutomationProperties.Name="Back to capture">
                     <FontIcon Glyph="&#xE72B;" FontFamily="Segoe Fluent Icons" FontSize="16" />
                 </Button>
-                <TextBlock x:Name="WindowTitleText" Text="ClipDat" VerticalAlignment="Center" Margin="16,0,0,0" />
+                <Image Source="ms-appx:///Assets/ClipDatMark.png" Width="20" Height="20"
+                       Margin="16,0,0,0" VerticalAlignment="Center" Stretch="Uniform"
+                       AutomationProperties.Name="ClipDat logo" />
+                <TextBlock x:Name="WindowTitleText" Text="ClipDat" VerticalAlignment="Center" Margin="8,0,0,0" />
             </StackPanel>
             <Button x:Name="SettingsButton" Grid.ColumnSpan="2"
                     HorizontalAlignment="Right" VerticalAlignment="Top"

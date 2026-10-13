@@ -206,7 +206,7 @@ internal sealed class SystemTrayController : IDisposable
         Flags = NifMessage | NifIcon | NifTip | NifShowTip,
         CallbackMessage = CallbackMessage,
         Icon = _icon,
-        Tip = "Clippr · instant replay",
+        Tip = "ClipDat · instant replay",
         Info = string.Empty,
         InfoTitle = string.Empty
     };
@@ -265,7 +265,7 @@ internal sealed class SystemTrayController : IDisposable
         if (menu == IntPtr.Zero) return;
         try
         {
-            AppendMenu(menu, MfString, (UIntPtr)CommandOpen, "Open Clippr");
+            AppendMenu(menu, MfString, (UIntPtr)CommandOpen, "Open ClipDat");
             AppendMenu(menu, _canSaveClip() ? MfString : MfString | MfGray, (UIntPtr)CommandSaveClip, "Save Clip");
             AppendMenu(menu, _canTakeScreenshot() ? MfString : MfString | MfGray, (UIntPtr)CommandScreenshot, "Take Screenshot");
             AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
@@ -274,7 +274,7 @@ internal sealed class SystemTrayController : IDisposable
             AppendMenu(menu, MfString, (UIntPtr)CommandOpenFolder, "Open Clips Folder");
             AppendMenu(menu, MfString, (UIntPtr)CommandSettings, "Settings");
             AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
-            AppendMenu(menu, MfString, (UIntPtr)CommandExit, "Exit Clippr");
+            AppendMenu(menu, MfString, (UIntPtr)CommandExit, "Exit ClipDat");
 
             _ = GetCursorPos(out var point);
             _ = SetForegroundWindow(_window);
