@@ -67,12 +67,16 @@
             </NavigationViewItem>
         </NavigationView.MenuItems>
         <NavigationView.PaneFooter>
-            <Border Height="68" Padding="20,6,12,4" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
-                <StackPanel Spacing="2">
-                    <TextBlock Text="Advanced settings" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <ToggleSwitch x:Name="AdvancedToggle" OnContent="" OffContent="" HorizontalAlignment="Left"
-                                  Toggled="OnAdvancedToggled" AutomationProperties.Name="Show advanced settings" />
-                </StackPanel>
+            <Border Height="68">
+                <Grid>
+                    <StackPanel Margin="20,6,12,4" Spacing="2">
+                        <TextBlock Text="Advanced settings" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <ToggleSwitch x:Name="AdvancedToggle" OnContent="" OffContent="" HorizontalAlignment="Left"
+                                      Toggled="OnAdvancedToggled" AutomationProperties.Name="Show advanced settings" />
+                    </StackPanel>
+                    <Border Height="1" Margin="0,10,0,0" VerticalAlignment="Top"
+                            Background="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                </Grid>
             </Border>
         </NavigationView.PaneFooter>
         <NavigationView.Content>
