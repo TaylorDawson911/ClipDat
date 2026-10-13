@@ -26,7 +26,12 @@ namespace
         L"hotkey", L"saveNotificationSound", L"startWithWindows", L"startCaptureAutomatically",
         L"replayMemoryLimitMb", L"musicAudioProcessId",
         L"desktopVolume", L"microphoneVolume", L"gameVolume", L"chatVolume", L"musicVolume",
-        L"desktopMuted", L"microphoneMuted", L"gameMuted", L"chatMuted", L"musicMuted"
+        L"desktopMuted", L"microphoneMuted", L"gameMuted", L"chatMuted", L"musicMuted",
+        L"screenshotHotkey", L"screenshotFormat", L"screenshotJpegQuality",
+        L"copyScreenshotToClipboard", L"screenshotNotificationSound", L"notificationStyle",
+        L"minimizeToTrayOnClose", L"minimumFreeDiskSpaceGb", L"voiceCommandsEnabled",
+        L"voiceWakePhrase", L"voiceConfidenceThreshold", L"voiceCooldownSeconds",
+        L"voiceCommandPhrases"
     };
 
     std::filesystem::path KnownFolderPath(REFKNOWNFOLDERID folder, DWORD flags)

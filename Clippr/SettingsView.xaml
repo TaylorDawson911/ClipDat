@@ -11,6 +11,18 @@
             <Setter Property="CornerRadius" Value="10" />
             <Setter Property="Padding" Value="18" />
         </Style>
+        <Style x:Key="VoiceCommandRowStyle" TargetType="Border">
+            <Setter Property="Background" Value="#242B32" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Padding" Value="8,5" />
+        </Style>
+        <Style x:Key="VoiceCommandGroupStyle" TargetType="Border">
+            <Setter Property="Background" Value="#20262D" />
+            <Setter Property="BorderBrush" Value="#39424B" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Padding" Value="10" />
+        </Style>
     </UserControl.Resources>
     <NavigationView x:Name="SettingsNavigation" PaneDisplayMode="Left" OpenPaneLength="225" CompactPaneLength="48" IsBackButtonVisible="Collapsed"
                     IsSettingsVisible="False" IsPaneToggleButtonVisible="False" SelectionChanged="OnNavigationSelectionChanged"
@@ -25,7 +37,7 @@
             <NavigationViewItem Content="Capture" Tag="Capture">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE7F4;" /></NavigationViewItem.Icon>
             </NavigationViewItem>
-            <NavigationViewItem Content="Voice" Tag="Voice">
+            <NavigationViewItem Content="Voice Control" Tag="Voice">
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE720;" /></NavigationViewItem.Icon>
             </NavigationViewItem>
             <NavigationViewItem Content="Audio" Tag="Audio">
@@ -38,6 +50,15 @@
                 <NavigationViewItem.Icon><FontIcon Glyph="&#xE8D4;" /></NavigationViewItem.Icon>
             </NavigationViewItem>
         </NavigationView.MenuItems>
+        <NavigationView.PaneFooter>
+            <Border Margin="12,0,12,10" Padding="8,10,8,0" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="Advanced settings" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <ToggleSwitch x:Name="AdvancedToggle" OnContent="" OffContent="" HorizontalAlignment="Left"
+                                  Toggled="OnAdvancedToggled" AutomationProperties.Name="Show advanced settings" />
+                </StackPanel>
+            </Border>
+        </NavigationView.PaneFooter>
         <NavigationView.Content>
             <Grid x:Name="SettingsPages" RowDefinitions="*,Auto">
                 <Grid.Background>
@@ -119,55 +140,96 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <ScrollViewer x:Name="VoicePage" Grid.Row="0" Margin="28,24,28,16" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-                    <StackPanel Spacing="16" MaxWidth="720" HorizontalAlignment="Stretch">
-                        <StackPanel Spacing="3" Margin="0,0,0,2">
-                            <TextBlock Text="Voice commands" FontSize="28" FontWeight="SemiBold" />
-                            <TextBlock Text="Control ClipDat with on-device Windows speech recognition." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
-                        <Border Style="{StaticResource SettingsCardStyle}">
-                            <StackPanel Spacing="10">
-                                <Grid ColumnDefinitions="*,Auto" MinHeight="42">
-                                    <StackPanel Spacing="3" VerticalAlignment="Center">
-                                        <TextBlock Text="Enable voice commands" FontSize="16" FontWeight="SemiBold" />
-                                        <TextBlock Text="Listening is opt-in and stays on this PC. ClipDat does not save or upload microphone audio." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <ScrollViewer x:Name="VoicePage" Grid.Row="0" Margin="24,20,24,14" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel Spacing="16" HorizontalAlignment="Stretch">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
+                            <Border Width="58" Height="58" CornerRadius="14" Background="#263C55" BorderBrush="#3F6589" BorderThickness="1" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE720;" FontFamily="Segoe Fluent Icons" FontSize="27" Foreground="White" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                <TextBlock Text="Voice commands" FontSize="27" FontWeight="SemiBold" />
+                                <TextBlock Text="Control ClipDat with on-device Windows speech recognition." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                            <Border Grid.Column="2" Style="{StaticResource SettingsCardStyle}" Padding="12,8" VerticalAlignment="Center" MaxWidth="220">
+                                <StackPanel Spacing="2">
+                                    <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
+                                        <TextBlock Text="Enabled" VerticalAlignment="Center" />
+                                        <ToggleSwitch x:Name="VoiceCommandsCheck" Grid.Column="1" OnContent="" OffContent=""
+                                                      VerticalAlignment="Center" AutomationProperties.Name="Enable local voice commands" />
+                                    </Grid>
+                                    <TextBlock x:Name="VoiceSettingsStatus" Text="Voice commands are off." FontSize="11" TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+                            <StackPanel Grid.Column="0" Spacing="16">
+                                <Border Style="{StaticResource SettingsCardStyle}">
+                                    <StackPanel Spacing="12">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="Live transcriber" FontSize="17" FontWeight="SemiBold" />
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                <Ellipse x:Name="VoiceListeningDot" Width="8" Height="8" Fill="#7B8793" />
+                                                <TextBlock x:Name="VoiceListeningLabel" Text="Not listening" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <Border Background="#1D2228" BorderBrush="#39424B" BorderThickness="1" CornerRadius="8" Padding="14,12" MinHeight="122">
+                                            <StackPanel Spacing="14">
+                                                <TextBlock x:Name="VoiceTranscriptText" Text="Say a command to test recognition." FontSize="17" TextWrapping="Wrap" />
+                                                <Border BorderBrush="#303A44" BorderThickness="0,1,0,0" Padding="0,10,0,0">
+                                                    <TextBlock x:Name="VoiceTranscriptResultText" Text="Waiting for speech" FontSize="12" TextWrapping="Wrap"
+                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                </Border>
+                                            </StackPanel>
+                                        </Border>
+                                        <TextBlock Text="Shows live command hypotheses and the last recognised phrase while listening. It does not transcribe unrestricted speech."
+                                                   FontSize="11" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
-                                    <ToggleSwitch x:Name="VoiceCommandsCheck" Grid.Column="1" OnContent="" OffContent=""
-                                                  VerticalAlignment="Center" AutomationProperties.Name="Enable local voice commands" />
-                                </Grid>
-                                <TextBlock Text="Requires microphone permission and a Windows speech language with offline recognition support." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </Border>
+                                <Border Style="{StaticResource SettingsCardStyle}">
+                                    <StackPanel Spacing="14">
+                                        <TextBlock Text="Quick settings" FontSize="17" FontWeight="SemiBold" />
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                                <TextBlock Text="Optional wake phrase" />
+                                                <TextBlock Text="Say this before a command" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            </StackPanel>
+                                            <TextBox x:Name="VoiceWakePhraseBox" Grid.Column="1" Width="155" PlaceholderText="Off · or ClipDat" MaxLength="32" />
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                                <TextBlock Text="Minimum confidence" />
+                                                <TextBlock Text="Ignore uncertain matches" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            </StackPanel>
+                                            <ComboBox x:Name="VoiceConfidenceCombo" Grid.Column="1" Width="155" />
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                                <TextBlock Text="Command cooldown" />
+                                                <TextBlock Text="Prevent repeated triggers" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            </StackPanel>
+                                            <NumberBox x:Name="VoiceCooldownBox" Grid.Column="1" Width="155" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
-                        </Border>
+                            <Border Grid.Column="1" Style="{StaticResource SettingsCardStyle}" VerticalAlignment="Top">
+                                <StackPanel Spacing="11">
+                                    <TextBlock Text="Available commands" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBox x:Name="VoiceCommandSearchBox" PlaceholderText="Search commands…" AutomationProperties.Name="Search voice commands" />
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <Button x:Name="VoiceFilterAllButton" Content="All" Click="OnVoiceFilterClick" Tag="All" FontSize="11" Padding="10,4" CornerRadius="12" />
+                                        <Button x:Name="VoiceFilterClippingButton" Content="Clipping" Click="OnVoiceFilterClick" Tag="Clipping" FontSize="11" Padding="10,4" CornerRadius="12" />
+                                        <Button x:Name="VoiceFilterRecordingButton" Content="Recording" Click="OnVoiceFilterClick" Tag="Recording" FontSize="11" Padding="10,4" CornerRadius="12" />
+                                        <Button x:Name="VoiceFilterGeneralButton" Content="Other" Click="OnVoiceFilterClick" Tag="General" FontSize="11" Padding="10,4" CornerRadius="12" />
+                                    </StackPanel>
+                                    <StackPanel x:Name="VoiceCommandList" Spacing="7" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
                         <Border Style="{StaticResource SettingsCardStyle}">
-                            <StackPanel Spacing="10">
-                                <TextBlock Text="Available commands" FontSize="16" FontWeight="SemiBold" />
-                                <TextBlock Text="Clip that · Save clip · Clip last 30 seconds · Clip last 60 seconds · Take screenshot · Start recording · Stop recording" TextWrapping="Wrap" />
-                                <TextBlock Text="Uses the current Windows default microphone. Windows speech recognition does not let desktop apps choose a separate microphone; your recording input selection remains independent." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource SettingsCardStyle}">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="Listening status" FontSize="16" FontWeight="SemiBold" />
-                                <TextBlock x:Name="VoiceSettingsStatus" Text="Voice commands are off." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                            </StackPanel>
-                        </Border>
-                        <Border x:Name="AdvancedVoiceCard" Style="{StaticResource SettingsCardStyle}" Visibility="Collapsed">
-                            <StackPanel Spacing="12">
-                                <TextBlock Text="Voice command options" FontSize="16" FontWeight="SemiBold" />
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Optional wake phrase" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <TextBox x:Name="VoiceWakePhraseBox" Grid.Column="1" PlaceholderText="Off · or try ClipDat" MaxLength="32" />
-                                </Grid>
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Minimum confidence" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="VoiceConfidenceCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Command cooldown" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <NumberBox x:Name="VoiceCooldownBox" Grid.Column="1" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" />
-                                </Grid>
-                                <TextBlock Text="When set, say the wake phrase before each command. A longer cooldown helps ignore repeated recognitions." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            </StackPanel>
+                            <TextBlock Text="Voice Control uses the current Windows default microphone and an installed offline speech language. Your recording input selection stays independent. No microphone audio or transcript is saved."
+                                       FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
@@ -325,13 +387,11 @@
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,27,28,0">
-                    <TextBlock Text="Advanced" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
-                    <ToggleSwitch x:Name="AdvancedToggle" OnContent="" OffContent="" VerticalAlignment="Center" Toggled="OnAdvancedToggled" AutomationProperties.Name="Show advanced settings" />
-                </StackPanel>
-                <Border Grid.Row="1" Background="#1E2023" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Padding="0,12,0,12" Margin="26,0,28,8">
+                <Border Grid.Row="1" Background="#252A30" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="0,1,0,0" Padding="24,10,28,12" MinHeight="68">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-                        <TextBlock x:Name="SettingsStatus" Text="Settings loaded · press Save changes to apply." Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock x:Name="SettingsStatus" Text="Settings loaded · press Save changes to apply." Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
                         <Button x:Name="SaveSettingsButton" Grid.Column="1" Content="Save changes" Style="{StaticResource AccentButtonStyle}" Click="OnSaveSettingsClick" />
                     </Grid>
                 </Border>

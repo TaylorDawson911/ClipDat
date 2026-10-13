@@ -93,6 +93,8 @@ namespace Clippr
         private SettingsView? _settingsView;
         private VoiceCommandService? _voiceCommandService;
         private string _voiceStatus = "Voice commands are off.";
+        private string _voiceTranscript = "Say a command to test recognition.";
+        private string _voiceTranscriptResult = "Waiting for speech";
         private Microsoft.UI.Dispatching.DispatcherQueue? _dispatcherQueue;
         private SystemTrayController? _tray;
         private string _preferredDisplayName = "";
@@ -206,6 +208,8 @@ namespace Clippr
         }
 
         internal string CurrentVoiceStatus => _voiceStatus;
+        internal string CurrentVoiceTranscript => _voiceTranscript;
+        internal string CurrentVoiceTranscriptResult => _voiceTranscriptResult;
 
         private async Task ConfigureVoiceCommandsAsync(ClipprSettings settings)
         {
@@ -215,15 +219,18 @@ namespace Clippr
             if (_closing || !settings.VoiceCommandsEnabled)
             {
                 SetVoiceStatus("Voice commands are off.");
+                SetVoiceTranscript("Say a command to test recognition.", "Voice commands are off");
                 return;
             }
 
             SetVoiceStatus("Checking Windows offline speech support…");
+            SetVoiceTranscript("Say a command to test recognition.", "Starting recognition…");
             try
             {
                 _voiceCommandService = await VoiceCommandService.StartAsync(
                     settings.VoiceWakePhrase, settings.VoiceConfidenceThreshold,
-                    settings.VoiceCooldownSeconds, OnVoiceCommandRecognized, SetVoiceStatus);
+                    settings.VoiceCooldownSeconds, settings.VoiceCommandPhrases,
+                    OnVoiceCommandRecognized, SetVoiceStatus, SetVoiceTranscript);
             }
             catch (VoiceRecognitionException ex)
             {
@@ -245,6 +252,18 @@ namespace Clippr
             else _ = _dispatcherQueue?.TryEnqueue(Update);
         }
 
+        private void SetVoiceTranscript(string words, string result)
+        {
+            void Update()
+            {
+                _voiceTranscript = string.IsNullOrWhiteSpace(words) ? "Say a command to test recognition." : words;
+                _voiceTranscriptResult = result;
+                _settingsView?.RefreshVoiceTranscript(_voiceTranscript, result);
+            }
+            if (_dispatcherQueue?.HasThreadAccess == true) Update();
+            else _ = _dispatcherQueue?.TryEnqueue(Update);
+        }
+
         private void OnVoiceCommandRecognized(string action)
         {
             SetVoiceStatus(action switch
@@ -255,6 +274,8 @@ namespace Clippr
                 "screenshot" => "Taking a screenshot",
                 "start" => "Starting clipping",
                 "stop" => "Stopping clipping",
+                "open" => "Opening ClipDat",
+                "settings" => "Opening settings",
                 _ => "Voice command received"
             });
             _ = _dispatcherQueue?.TryEnqueue(() => _ = ExecuteVoiceCommandAsync(action));
@@ -274,6 +295,11 @@ namespace Clippr
                 case "screenshot": await TakeScreenshotAsync(); break;
                 case "start": await SetClippingAsync(true); break;
                 case "stop": await SetClippingAsync(false); break;
+                case "open": RestoreFromTray(); break;
+                case "settings":
+                    RestoreFromTray();
+                    OnSettingsClick(SettingsButton, new RoutedEventArgs());
+                    break;
             }
         }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -63,6 +64,7 @@ public sealed class ClipprSettings
     public string VoiceWakePhrase { get; set; } = "";
     public string VoiceConfidenceThreshold { get; set; } = "High";
     public int VoiceCooldownSeconds { get; set; } = 3;
+    public Dictionary<string, string> VoiceCommandPhrases { get; set; } = VoiceCommandCatalog.Defaults();
 
     public static bool LastLoadWasCorrupt { get; private set; }
 
@@ -119,7 +121,12 @@ public sealed class ClipprSettings
         return settings;
     }
 
-    public ClipprSettings Clone() => (ClipprSettings)MemberwiseClone();
+    public ClipprSettings Clone()
+    {
+        var clone = (ClipprSettings)MemberwiseClone();
+        clone.VoiceCommandPhrases = new Dictionary<string, string>(VoiceCommandPhrases, StringComparer.Ordinal);
+        return clone;
+    }
 
     public string? ValidateAndNormalize()
     {
@@ -133,6 +140,16 @@ public sealed class ClipprSettings
         VoiceCooldownSeconds = Math.Clamp(VoiceCooldownSeconds, 1, 10);
         VoiceWakePhrase = (VoiceWakePhrase ?? "").Trim();
         if (VoiceWakePhrase.Length > 32 || VoiceWakePhrase.Any(c => !char.IsLetterOrDigit(c) && c != ' ')) VoiceWakePhrase = "";
+        VoiceCommandPhrases ??= VoiceCommandCatalog.Defaults();
+        foreach (var command in VoiceCommandCatalog.Commands)
+        {
+            if (!VoiceCommandPhrases.TryGetValue(command.Key, out var phrase) || !VoiceCommandCatalog.IsValid(phrase))
+                VoiceCommandPhrases[command.Key] = command.DefaultPhrase;
+            else VoiceCommandPhrases[command.Key] = VoiceCommandCatalog.Normalize(phrase);
+        }
+        if (VoiceCommandCatalog.Commands.Select(command => VoiceCommandPhrases[command.Key])
+            .GroupBy(phrase => phrase, StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1))
+            VoiceCommandPhrases = VoiceCommandCatalog.Defaults();
         if (QualityPreset is not ("Standard" or "High")) QualityPreset = "Standard";
         if (VideoFormat is not ("mp4" or "mkv")) VideoFormat = "mp4";
         if (NotificationStyle is not ("Windows" or "ClipDat")) NotificationStyle = "Windows";
@@ -174,6 +191,15 @@ public sealed class ClipprSettings
         if (VoiceConfidenceThreshold is not ("Medium" or "High")) return "Choose Medium or High voice recognition confidence.";
         if (VoiceCooldownSeconds is < 1 or > 10) return "Voice command cooldown must be between 1 and 10 seconds.";
         if (VoiceWakePhrase.Length > 32 || VoiceWakePhrase.Any(c => !char.IsLetterOrDigit(c) && c != ' ')) return "The wake phrase can contain letters, numbers, and spaces only (up to 32 characters).";
+        if (VoiceCommandPhrases is null) return "Voice commands are missing. Reopen Settings to restore them.";
+        var commandPhrases = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var command in VoiceCommandCatalog.Commands)
+        {
+            if (!VoiceCommandPhrases.TryGetValue(command.Key, out var phrase) || !VoiceCommandCatalog.IsValid(phrase))
+                return $"The phrase for {command.DefaultPhrase} must be 1–60 letters, numbers, or spaces.";
+            if (!commandPhrases.Add(VoiceCommandCatalog.Normalize(phrase)))
+                return "Voice command phrases must be unique.";
+        }
         if (QualityPreset is not ("Standard" or "High")) return "Choose a supported quality preset.";
         if (Encoder is not "MediaFoundationHardware") return "Choose the supported Media Foundation hardware encoder.";
         if (VideoFormat is not ("mp4" or "mkv")) return "Choose MP4 or MKV.";

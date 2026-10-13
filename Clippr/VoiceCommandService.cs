@@ -14,39 +14,34 @@ namespace Clippr;
 /// </summary>
 internal sealed class VoiceCommandService : IAsyncDisposable
 {
-    private static readonly (string Phrase, string Action)[] Commands =
-    [
-        ("clip that", "save-configured"),
-        ("save clip", "save-configured"),
-        ("clip last 30 seconds", "save-30"),
-        ("clip last 60 seconds", "save-60"),
-        ("take screenshot", "screenshot"),
-        ("start recording", "start"),
-        ("stop recording", "stop")
-    ];
-
     private readonly SpeechRecognizer _recognizer;
+    private readonly (string Phrase, string Action)[] _commands;
     private readonly string _wakePhrase;
     private readonly string _minimumConfidence;
     private readonly TimeSpan _cooldown;
     private readonly Action<string> _commandHandler;
     private readonly Action<string> _statusHandler;
+    private readonly Action<string, string> _transcriptHandler;
     private long _lastCommandTicks;
     private int _disposed;
 
-    private VoiceCommandService(SpeechRecognizer recognizer, string wakePhrase, string minimumConfidence,
-        TimeSpan cooldown, Action<string> commandHandler, Action<string> statusHandler)
+    private VoiceCommandService(SpeechRecognizer recognizer, (string Phrase, string Action)[] commands,
+        string wakePhrase, string minimumConfidence, TimeSpan cooldown, Action<string> commandHandler,
+        Action<string> statusHandler, Action<string, string> transcriptHandler)
     {
         _recognizer = recognizer;
+        _commands = commands;
         _wakePhrase = wakePhrase;
         _minimumConfidence = minimumConfidence;
         _cooldown = cooldown;
         _commandHandler = commandHandler;
         _statusHandler = statusHandler;
+        _transcriptHandler = transcriptHandler;
     }
 
     public static async Task<VoiceCommandService> StartAsync(string wakePhrase, string minimumConfidence,
-        int cooldownSeconds, Action<string> commandHandler, Action<string> statusHandler)
+        int cooldownSeconds, IReadOnlyDictionary<string, string> commandPhrases,
+        Action<string> commandHandler, Action<string> statusHandler, Action<string, string> transcriptHandler)
     {
         SpeechRecognizer? recognizer = null;
         VoiceCommandService? service = null;
@@ -60,7 +55,9 @@ internal sealed class VoiceCommandService : IAsyncDisposable
 
             recognizer = new SpeechRecognizer(language);
             var normalizedWakePhrase = Normalize(wakePhrase);
-            var phrases = Commands.Select(command => normalizedWakePhrase.Length == 0
+            var commands = VoiceCommandCatalog.Commands.Select(command =>
+                (Phrase: Normalize(commandPhrases[command.Key]), command.Action)).ToArray();
+            var phrases = commands.Select(command => normalizedWakePhrase.Length == 0
                     ? command.Phrase
                     : $"{normalizedWakePhrase} {command.Phrase}")
                 .ToArray();
@@ -70,13 +67,16 @@ internal sealed class VoiceCommandService : IAsyncDisposable
                 throw new VoiceRecognitionException(
                     $"Offline speech grammar could not compile ({compilation.Status}). Check the installed Windows speech language feature.");
 
-            service = new VoiceCommandService(recognizer, normalizedWakePhrase, minimumConfidence,
-                TimeSpan.FromSeconds(Math.Clamp(cooldownSeconds, 1, 10)), commandHandler, statusHandler);
+            service = new VoiceCommandService(recognizer, commands, normalizedWakePhrase, minimumConfidence,
+                TimeSpan.FromSeconds(Math.Clamp(cooldownSeconds, 1, 10)), commandHandler, statusHandler,
+                transcriptHandler);
             recognizer = null;
+            service._recognizer.HypothesisGenerated += service.OnHypothesisGenerated;
             service._recognizer.ContinuousRecognitionSession.ResultGenerated += service.OnResultGenerated;
             service._recognizer.ContinuousRecognitionSession.Completed += service.OnSessionCompleted;
             await service._recognizer.ContinuousRecognitionSession.StartAsync();
             statusHandler("Listening with Windows offline speech recognition on the default microphone.");
+            transcriptHandler("", "Listening for a command…");
             return service;
         }
         catch (UnauthorizedAccessException ex)
@@ -107,34 +107,62 @@ internal sealed class VoiceCommandService : IAsyncDisposable
         }
     }
 
+    private void OnHypothesisGenerated(SpeechRecognizer sender, SpeechRecognitionHypothesisGeneratedEventArgs args)
+    {
+        if (Volatile.Read(ref _disposed) != 0) return;
+        var words = args.Hypothesis.Text?.Trim();
+        if (!string.IsNullOrWhiteSpace(words)) _transcriptHandler(words, "Hearing…");
+    }
+
     private void OnResultGenerated(SpeechContinuousRecognitionSession sender,
         SpeechContinuousRecognitionResultGeneratedEventArgs args)
     {
         if (Volatile.Read(ref _disposed) != 0 || args.Result.Status != SpeechRecognitionResultStatus.Success)
             return;
+        var heard = args.Result.Text?.Trim() ?? "";
+        if (heard.Length == 0) return;
         if (_minimumConfidence == "High" && args.Result.Confidence != SpeechRecognitionConfidence.High)
+        {
+            _transcriptHandler(heard, "Heard · below High confidence");
             return;
-        if (_minimumConfidence == "Medium" && args.Result.Confidence == SpeechRecognitionConfidence.Low)
+        }
+        if (_minimumConfidence == "Medium" && args.Result.Confidence is SpeechRecognitionConfidence.Low or SpeechRecognitionConfidence.Rejected)
+        {
+            _transcriptHandler(heard, "Heard · below Medium confidence");
             return;
+        }
 
-        var phrase = Normalize(args.Result.Text);
+        var phrase = Normalize(heard);
         if (_wakePhrase.Length != 0)
         {
             var prefix = _wakePhrase + " ";
-            if (!phrase.StartsWith(prefix, StringComparison.Ordinal)) return;
+            if (!phrase.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                _transcriptHandler(heard, "Heard · wake phrase missing");
+                return;
+            }
             phrase = phrase[prefix.Length..];
         }
-        var action = Commands.Where(command => phrase == command.Phrase)
+        var action = _commands.Where(command => phrase == command.Phrase)
             .Select(command => command.Action).FirstOrDefault();
-        if (action is null) return;
+        if (action is null)
+        {
+            _transcriptHandler(heard, "Heard · no matching command");
+            return;
+        }
 
         var now = DateTime.UtcNow.Ticks;
         while (true)
         {
             var previous = Interlocked.Read(ref _lastCommandTicks);
-            if (previous != 0 && now - previous < _cooldown.Ticks) return;
+            if (previous != 0 && now - previous < _cooldown.Ticks)
+            {
+                _transcriptHandler(heard, "Ignored · command cooldown");
+                return;
+            }
             if (Interlocked.CompareExchange(ref _lastCommandTicks, now, previous) == previous) break;
         }
+        _transcriptHandler(heard, "Command recognised");
         try { _commandHandler(action); }
         catch (Exception) { }
     }
@@ -149,6 +177,7 @@ internal sealed class VoiceCommandService : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        _recognizer.HypothesisGenerated -= OnHypothesisGenerated;
         _recognizer.ContinuousRecognitionSession.ResultGenerated -= OnResultGenerated;
         _recognizer.ContinuousRecognitionSession.Completed -= OnSessionCompleted;
         try { await _recognizer.ContinuousRecognitionSession.CancelAsync(); }

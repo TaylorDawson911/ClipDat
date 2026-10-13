@@ -8,6 +8,9 @@ using System.Threading.Tasks;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.DataTransfer;
@@ -27,6 +30,9 @@ public sealed partial class SettingsView : UserControl
     private FrameworkElement? _currentPage;
     private FrameworkElement? _pendingPage;
     private string _feedbackUrl = "";
+    private readonly Dictionary<string, Border> _voiceCommandRows = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Border> _voiceCommandGroups = new(StringComparer.Ordinal);
+    private string _voiceCommandCategory = "All";
 
     public SettingsView(MainWindow mainWindow, ClipprSettings settings)
     {
@@ -93,6 +99,11 @@ public sealed partial class SettingsView : UserControl
         VoiceCooldownBox.IsEnabled = _draft.VoiceCommandsEnabled;
         VoiceSettingsStatus.Text = _draft.VoiceCommandsEnabled
             ? _mainWindow.CurrentVoiceStatus : "Voice commands are off.";
+        UpdateVoiceListeningVisual(_mainWindow.CurrentVoiceStatus);
+        VoiceTranscriptText.Text = _mainWindow.CurrentVoiceTranscript;
+        VoiceTranscriptResultText.Text = _mainWindow.CurrentVoiceTranscriptResult;
+        PopulateVoiceCommandRows();
+        UpdateVoiceFilterButtons();
         ScreenshotJpegQualityBox.Value = _draft.ScreenshotJpegQuality;
         ScreenshotJpegQualityRow.Visibility = _draft.ScreenshotFormat == "jpg" ? Visibility.Visible : Visibility.Collapsed;
         CopyScreenshotCheck.IsOn = _draft.CopyScreenshotToClipboard;
@@ -130,6 +141,7 @@ public sealed partial class SettingsView : UserControl
         VoiceCommandsCheck.Toggled += OnVoiceCommandsToggled;
         VoiceWakePhraseBox.LostFocus += OnClipFolderLostFocus;
         VoiceCooldownBox.ValueChanged += OnVoiceCooldownChanged;
+        VoiceCommandSearchBox.TextChanged += (_, _) => FilterVoiceCommands();
         ScreenshotJpegQualityBox.ValueChanged += OnScreenshotJpegQualityChanged;
         AutoCaptureCheck.Toggled += OnSettingChanged;
         MinimizeToTrayCheck.Toggled += OnSettingChanged;
@@ -154,6 +166,169 @@ public sealed partial class SettingsView : UserControl
     }
 
     private static string GetTag(ComboBox combo) => (combo.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "";
+
+    private void PopulateVoiceCommandRows()
+    {
+        foreach (var category in new[] { "Clipping", "Recording", "General" })
+        {
+            var group = new StackPanel { Spacing = 4 };
+            var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(3, 0, 0, 3) };
+            if (category == "Recording")
+                header.Children.Add(new Microsoft.UI.Xaml.Shapes.Ellipse
+                {
+                    Width = 12, Height = 12, Fill = new SolidColorBrush(ColorHelper.FromArgb(255, 237, 78, 88)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            else
+                header.Children.Add(new FontIcon
+                {
+                    Glyph = category == "Clipping" ? "\uE8C6" : "\uE713", FontSize = 15,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            header.Children.Add(new TextBlock
+            {
+                Text = category,
+                FontSize = 13,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            group.Children.Add(header);
+            var groupBorder = new Border { Style = (Style)Resources["VoiceCommandGroupStyle"], Child = group };
+            _voiceCommandGroups[category] = groupBorder;
+            VoiceCommandList.Children.Add(groupBorder);
+
+            foreach (var command in VoiceCommandCatalog.Commands.Where(item => item.Category == category))
+            {
+                var row = new Border { Style = (Style)Resources["VoiceCommandRowStyle"] };
+                var layout = new Grid { ColumnSpacing = 4, RowSpacing = 5 };
+                layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                var phrase = new TextBlock
+                {
+                    Text = _draft.VoiceCommandPhrases[command.Key],
+                    FontSize = 12,
+                    TextWrapping = TextWrapping.Wrap,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                var description = new TextBlock
+                {
+                    Text = command.Description,
+                    FontSize = 10,
+                    TextWrapping = TextWrapping.Wrap,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 170, 180, 190))
+                };
+                layout.Children.Add(phrase);
+
+                var edit = new Button
+                {
+                    Content = new FontIcon { Glyph = "\uE70F", FontSize = 11 },
+                    Width = 24, Height = 24, Padding = new Thickness(0),
+                    Background = new SolidColorBrush(ColorHelper.FromArgb(0, 0, 0, 0)),
+                    BorderThickness = new Thickness(0),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                AutomationProperties.SetName(edit, $"Edit {command.DefaultPhrase} voice command");
+                ToolTipService.SetToolTip(edit, "Edit phrase");
+                Grid.SetColumn(edit, 1);
+                layout.Children.Add(edit);
+                Grid.SetColumn(description, 2);
+                layout.Children.Add(description);
+
+                var editor = new TextBox
+                {
+                    Text = _draft.VoiceCommandPhrases[command.Key],
+                    MaxLength = 60,
+                    Visibility = Visibility.Collapsed,
+                    PlaceholderText = "Say this phrase to run the command"
+                };
+                AutomationProperties.SetName(editor, $"Phrase for {command.DefaultPhrase}");
+                Grid.SetRow(editor, 1);
+                Grid.SetColumnSpan(editor, 3);
+                layout.Children.Add(editor);
+                row.Child = layout;
+                group.Children.Add(row);
+                _voiceCommandRows[command.Key] = row;
+
+                var original = editor.Text;
+                edit.Click += (_, _) =>
+                {
+                    original = _draft.VoiceCommandPhrases[command.Key];
+                    editor.Visibility = Visibility.Visible;
+                    editor.Focus(FocusState.Programmatic);
+                    editor.SelectAll();
+                };
+                editor.TextChanged += (_, _) =>
+                {
+                    if (!_ready || _applying) return;
+                    _draft.VoiceCommandPhrases[command.Key] = editor.Text;
+                    phrase.Text = string.IsNullOrWhiteSpace(editor.Text) ? "Enter a phrase" : editor.Text.Trim();
+                    UpdateDraftAndDirtyState();
+                };
+                editor.KeyDown += (_, args) =>
+                {
+                    if (args.Key == VirtualKey.Escape)
+                    {
+                        editor.Text = original;
+                        editor.Visibility = Visibility.Collapsed;
+                        args.Handled = true;
+                    }
+                    else if (args.Key == VirtualKey.Enter)
+                    {
+                        editor.Visibility = Visibility.Collapsed;
+                        args.Handled = true;
+                    }
+                };
+                editor.LostFocus += (_, _) => editor.Visibility = Visibility.Collapsed;
+            }
+        }
+    }
+
+    private void FilterVoiceCommands()
+    {
+        var search = VoiceCommandSearchBox.Text.Trim();
+        foreach (var group in _voiceCommandGroups)
+        {
+            var anyVisible = false;
+            foreach (var command in VoiceCommandCatalog.Commands.Where(item => item.Category == group.Key))
+            {
+                var matches = (_voiceCommandCategory == "All" || _voiceCommandCategory == group.Key) &&
+                    (search.Length == 0 || _draft.VoiceCommandPhrases[command.Key].Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                     command.Description.Contains(search, StringComparison.OrdinalIgnoreCase));
+                _voiceCommandRows[command.Key].Visibility = matches ? Visibility.Visible : Visibility.Collapsed;
+                anyVisible |= matches;
+            }
+            group.Value.Visibility = anyVisible ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    private void OnVoiceFilterClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string category }) return;
+        _voiceCommandCategory = category;
+        UpdateVoiceFilterButtons();
+        FilterVoiceCommands();
+    }
+
+    private void UpdateVoiceFilterButtons()
+    {
+        foreach (var button in new[] { VoiceFilterAllButton, VoiceFilterClippingButton,
+                     VoiceFilterRecordingButton, VoiceFilterGeneralButton })
+        {
+            var selected = Equals(button.Tag, _voiceCommandCategory);
+            button.Background = new SolidColorBrush(selected
+                ? ColorHelper.FromArgb(255, 41, 120, 204)
+                : ColorHelper.FromArgb(255, 30, 37, 44));
+            button.BorderBrush = new SolidColorBrush(selected
+                ? ColorHelper.FromArgb(255, 64, 146, 229)
+                : ColorHelper.FromArgb(255, 57, 66, 75));
+            button.BorderThickness = new Thickness(1);
+        }
+    }
 
     private void PopulateDisplays()
     {
@@ -266,7 +441,6 @@ public sealed partial class SettingsView : UserControl
         AdvancedNotificationRow.Visibility = visibility;
         AdvancedHotkeyRow.Visibility = visibility;
         AdvancedFeedbackActions.Visibility = visibility;
-        AdvancedVoiceCard.Visibility = visibility;
     }
 
     private void OnSettingChanged(object sender, object e)
@@ -347,6 +521,7 @@ public sealed partial class SettingsView : UserControl
         VoiceWakePhraseBox.IsEnabled = enabled;
         VoiceConfidenceCombo.IsEnabled = enabled;
         VoiceCooldownBox.IsEnabled = enabled;
+        if (_ready) VoiceSettingsStatus.Text = enabled ? "Save changes to start listening." : "Save changes to stop listening.";
         OnSettingChanged(sender, e);
     }
 
@@ -358,6 +533,22 @@ public sealed partial class SettingsView : UserControl
     internal void RefreshVoiceStatus(string status)
     {
         if (VoiceCommandsCheck.IsOn) VoiceSettingsStatus.Text = status;
+        UpdateVoiceListeningVisual(status);
+    }
+
+    private void UpdateVoiceListeningVisual(string status)
+    {
+        var listening = status.StartsWith("Listening with Windows", StringComparison.Ordinal);
+        VoiceListeningDot.Fill = new SolidColorBrush(listening
+            ? ColorHelper.FromArgb(255, 88, 201, 145)
+            : ColorHelper.FromArgb(255, 123, 135, 147));
+        VoiceListeningLabel.Text = listening ? "Listening" : "Not listening";
+    }
+
+    internal void RefreshVoiceTranscript(string words, string result)
+    {
+        VoiceTranscriptText.Text = words;
+        VoiceTranscriptResultText.Text = result;
     }
 
     private void OnPreviewNotificationClick(object sender, RoutedEventArgs e)
