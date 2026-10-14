@@ -197,6 +197,8 @@
                                 </Button>
                                 <Button x:Name="OpenClipsButton" Content="Open Clips" Height="28"
                                         Padding="8,0" FontSize="12" Click="OnOpenClipsClick" />
+                                <Button x:Name="OpenLibraryButton" Content="Clip Library" Height="28"
+                                        Padding="8,0" FontSize="12" Click="OnOpenLibraryClick" />
                             </StackPanel>
                         </Border>
                         <TextBlock x:Name="SharingStatusText" Visibility="Collapsed" MaxWidth="750"

@@ -1,5 +1,7 @@
 # ClipDat
 
+An optional [ClipDat Library](ClipDat.Library/README.md) manages saved clips and screenshots in a separate WinUI app. ClipDat's **Quick Share** settings page explains the current direct-sharing status; no public link is offered without a verified secure endpoint.
+
 ClipDat is a native Windows clipping and instant-replay desktop application built from the Clippr project. It is designed to keep capture and replay data on the user's PC and to use Windows capture, audio, encoding, and shell APIs.
 
 > **Development status:** This is an active, pre-release project. Some features are implemented but have not been verified on all Windows versions, hardware vendors, or failure conditions. See [Testing and known limitations](#testing-and-known-limitations) before relying on it for important recordings.

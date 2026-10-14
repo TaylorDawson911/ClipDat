@@ -54,6 +54,7 @@ public sealed partial class SettingsView : UserControl
             SettingsStatus.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(ColorHelper.FromArgb(255, 237, 190, 120));
         }
         SettingsNavigation.SelectedItem = SettingsNavigation.MenuItems.OfType<NavigationViewItem>().FirstOrDefault();
+        QuickShareExpirationCombo.SelectedIndex = 1;
         CapturePage.SizeChanged += (_, _) => UpdateCaptureSourceLayout();
         _ = RefreshAppStorageUsageAsync();
     }
@@ -441,6 +442,7 @@ public sealed partial class SettingsView : UserControl
             "Voice" => VoicePage,
             "Audio" => AudioPage,
             "Output" => OutputPage,
+            "QuickShare" => QuickSharePage,
             "Feedback" => FeedbackPage,
             _ => CapturePage
         };
@@ -789,6 +791,43 @@ public sealed partial class SettingsView : UserControl
         if (folder is null) return;
         ClipFolderBox.Text = folder.Path;
         UpdateDraftAndDirtyState();
+    }
+
+    private async void OnOpenClipsFolderClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var folder = Path.GetFullPath(_savedSnapshot.ClipFolder);
+            Directory.CreateDirectory(folder);
+            WindowsShellFileActions.OpenWithDefaultApplication(folder);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or System.ComponentModel.Win32Exception or COMException)
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = "Could not open Clips Folder",
+                Content = ex.Message,
+                CloseButtonText = "Close"
+            };
+            await dialog.ShowAsync();
+        }
+    }
+
+    private async void OnOpenClipLibraryClick(object sender, RoutedEventArgs e)
+    {
+        try { LibraryLauncher.Open(_savedSnapshot.ClipFolder); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or System.ComponentModel.Win32Exception or COMException)
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot,
+                Title = "Could not open Clip Library",
+                Content = ex.Message,
+                CloseButtonText = "Close"
+            };
+            await dialog.ShowAsync();
+        }
     }
 
     private void ConfigureFeedback()

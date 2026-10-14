@@ -355,6 +355,9 @@ namespace Clippr
                 case TrayCommand.OpenClipsFolder:
                     OnOpenClipsClick(OpenClipsButton, new RoutedEventArgs());
                     break;
+                case TrayCommand.OpenLibrary:
+                    OnOpenLibraryClick(OpenLibraryButton, new RoutedEventArgs());
+                    break;
                 case TrayCommand.Settings:
                     RestoreFromTray();
                     OnSettingsClick(SettingsButton, new RoutedEventArgs());
@@ -1253,6 +1256,13 @@ namespace Clippr
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or COMException or System.ComponentModel.Win32Exception)
             { ShowInfoError($"Could not open clips folder: {ex.Message}"); }
+        }
+
+        private void OnOpenLibraryClick(object sender, RoutedEventArgs e)
+        {
+            try { LibraryLauncher.Open(_clipFolder); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or COMException or System.ComponentModel.Win32Exception)
+            { ShowInfoError(ex.Message); }
         }
 
         private static string FormatScreenshotError(int error) => error switch

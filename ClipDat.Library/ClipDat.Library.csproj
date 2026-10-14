@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>ClipDat.Library</RootNamespace>
+    <Version>0.1.0</Version>
+    <ApplicationIcon>..\Clippr\Assets\ClipprTray.ico</ApplicationIcon>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Clippr\WindowsShellFileActions.cs" Link="WindowsShellFileActions.cs" />
+    <Content Include="..\Clippr\Assets\ClipprTray.ico" Link="Assets\ClipprTray.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

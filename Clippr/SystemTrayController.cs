@@ -11,6 +11,7 @@ internal enum TrayCommand
     TakeScreenshot,
     PauseResumeCapture,
     OpenClipsFolder,
+    OpenLibrary,
     Settings,
     Exit
 }
@@ -54,6 +55,7 @@ internal sealed class SystemTrayController : IDisposable
     private const uint CommandOpenFolder = 1005;
     private const uint CommandSettings = 1006;
     private const uint CommandExit = 1007;
+    private const uint CommandLibrary = 1008;
 
     private readonly IntPtr _window;
     private readonly DispatcherQueue _dispatcher;
@@ -280,6 +282,7 @@ internal sealed class SystemTrayController : IDisposable
             AppendMenu(menu, MfString, (UIntPtr)CommandPauseResume,
                 _capturePaused() ? "Resume Capture" : "Pause Capture");
             AppendMenu(menu, MfString, (UIntPtr)CommandOpenFolder, "Open Clips Folder");
+            AppendMenu(menu, MfString, (UIntPtr)CommandLibrary, "Open Clip Library");
             AppendMenu(menu, MfString, (UIntPtr)CommandSettings, "Settings");
             AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
             AppendMenu(menu, MfString, (UIntPtr)CommandExit, "Exit ClipDat");
@@ -302,6 +305,7 @@ internal sealed class SystemTrayController : IDisposable
             CommandScreenshot => TrayCommand.TakeScreenshot,
             CommandPauseResume => TrayCommand.PauseResumeCapture,
             CommandOpenFolder => TrayCommand.OpenClipsFolder,
+            CommandLibrary => TrayCommand.OpenLibrary,
             CommandSettings => TrayCommand.Settings,
             CommandExit => TrayCommand.Exit,
             _ => (TrayCommand?)null
