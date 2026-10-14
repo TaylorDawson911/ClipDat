@@ -16,6 +16,7 @@ using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.UI;
@@ -92,6 +93,7 @@ namespace Clippr
         private string _clipFormat = "mp4";
         private int _clipSequence;
         private SettingsView? _settingsView;
+        private readonly TranslateTransform _settingsHostTranslate = new() { Y = 14 };
         private VoiceCommandService? _voiceCommandService;
         private string _voiceStatus = "Voice commands are off.";
         private string _voiceTranscript = "Say a command to test recognition.";
@@ -131,6 +133,7 @@ namespace Clippr
         public MainWindow()
         {
             InitializeComponent();
+            SettingsHost.RenderTransform = _settingsHostTranslate;
             AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "ClipprTray.ico"));
             _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
             var workArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(
@@ -245,8 +248,6 @@ namespace Clippr
             _voiceStatus = status;
             void Update()
             {
-                VoiceStatusText.Text = status;
-                VoiceStatusText.Visibility = _settings.VoiceCommandsEnabled ? Visibility.Visible : Visibility.Collapsed;
                 _settingsView?.RefreshVoiceStatus(status);
             }
             if (_dispatcherQueue?.HasThreadAccess == true) Update();
@@ -296,15 +297,30 @@ namespace Clippr
         private void OnSettingsClick(object sender, RoutedEventArgs e)
         {
             if (_settingsView is not null || _settingsTransitioning) return;
-            _settingsView = new SettingsView(this, _settings);
-            SettingsHost.Children.Add(_settingsView);
-            SettingsHost.Visibility = Visibility.Visible;
-            BackToCaptureButton.Visibility = Visibility.Visible;
-            SettingsButton.Visibility = Visibility.Collapsed;
-            WindowTitleText.Text = "Settings";
-            WindowTitleText.Margin = new Thickness(8, 0, 0, 0);
-            _settingsTransitioning = true;
-            _ = AnimateSettingsOpenAsync();
+            try
+            {
+                _settingsView = new SettingsView(this, _settings);
+                SettingsHost.Children.Add(_settingsView);
+                SettingsHost.Visibility = Visibility.Visible;
+                BackToCaptureButton.Visibility = Visibility.Visible;
+                SettingsButton.Visibility = Visibility.Collapsed;
+                WindowTitleText.Text = "Settings";
+                WindowTitleText.Margin = new Thickness(8, 0, 0, 0);
+                _settingsTransitioning = true;
+                _ = AnimateSettingsOpenAsync();
+            }
+            catch (Exception ex)
+            {
+                _settingsView = null;
+                SettingsHost.Children.Clear();
+                SettingsHost.Visibility = Visibility.Collapsed;
+                BackToCaptureButton.Visibility = Visibility.Collapsed;
+                SettingsButton.Visibility = Visibility.Visible;
+                WindowTitleText.Text = "ClipDat";
+                WindowTitleText.Margin = new Thickness(16, 0, 0, 0);
+                LocalReliabilityLog.Error("settings-open", ex.HResult, ex.Message);
+                ShowPreviewMessage("Settings could not be opened. The error was saved locally.");
+            }
         }
 
         internal void RestoreFromTray()
@@ -399,8 +415,6 @@ namespace Clippr
             await AnimateSettingsSurfaceAsync(showSettings: true);
             CaptureToolbar.Visibility = Visibility.Collapsed;
             CaptureContent.Visibility = Visibility.Collapsed;
-            SetOpacity(CaptureToolbar, 1);
-            SetOpacity(CaptureContent, 1);
             _settingsTransitioning = false;
         }
 
@@ -416,63 +430,49 @@ namespace Clippr
             SettingsButton.Visibility = Visibility.Visible;
             WindowTitleText.Text = "ClipDat";
             WindowTitleText.Margin = new Thickness(16, 0, 0, 0);
-            SetOpacity(SettingsHost, 1);
-            SetOpacity(CaptureToolbar, 1);
-            SetOpacity(CaptureContent, 1);
+            SettingsHost.Opacity = 1;
+            _settingsHostTranslate.Y = 14;
+            CaptureToolbar.Opacity = 1;
+            CaptureContent.Opacity = 1;
             _settingsTransitioning = false;
         }
 
         private async Task AnimateSettingsSurfaceAsync(bool showSettings)
         {
-            var settingsVisual = ElementCompositionPreview.GetElementVisual(SettingsHost);
-            var toolbarVisual = ElementCompositionPreview.GetElementVisual(CaptureToolbar);
-            var captureVisual = ElementCompositionPreview.GetElementVisual(CaptureContent);
-            var compositor = settingsVisual.Compositor;
-            var duration = TimeSpan.FromMilliseconds(220);
-            var easing = compositor.CreateCubicBezierEasingFunction(new Vector2(0.2f, 0.8f), new Vector2(0.2f, 1f));
+            const int durationMs = 220;
+            SettingsHost.Opacity = showSettings ? 0 : 1;
+            _settingsHostTranslate.Y = showSettings ? 14 : 0;
+            CaptureToolbar.Opacity = showSettings ? 1 : 0;
+            CaptureContent.Opacity = showSettings ? 1 : 0;
 
-            settingsVisual.StopAnimation("Opacity");
-            settingsVisual.StopAnimation("Offset");
-            toolbarVisual.StopAnimation("Opacity");
-            captureVisual.StopAnimation("Opacity");
-            if (showSettings)
-            {
-                settingsVisual.Opacity = 0;
-                settingsVisual.Offset = new Vector3(0, 14, 0);
-                toolbarVisual.Opacity = 1;
-                captureVisual.Opacity = 1;
-            }
-            else
-            {
-                settingsVisual.Opacity = 1;
-                settingsVisual.Offset = Vector3.Zero;
-                toolbarVisual.Opacity = 0;
-                captureVisual.Opacity = 0;
-            }
-
-            var settingsFade = compositor.CreateScalarKeyFrameAnimation();
-            settingsFade.Duration = duration;
-            settingsFade.InsertKeyFrame(1, showSettings ? 1 : 0, easing);
-            var settingsSlide = compositor.CreateVector3KeyFrameAnimation();
-            settingsSlide.Duration = duration;
-            settingsSlide.InsertKeyFrame(1, showSettings ? Vector3.Zero : new Vector3(0, -10, 0), easing);
-            var captureFade = compositor.CreateScalarKeyFrameAnimation();
-            captureFade.Duration = duration;
-            captureFade.InsertKeyFrame(1, showSettings ? 0 : 1, easing);
-            settingsVisual.StartAnimation("Opacity", settingsFade);
-            settingsVisual.StartAnimation("Offset", settingsSlide);
-            toolbarVisual.StartAnimation("Opacity", captureFade);
-            captureVisual.StartAnimation("Opacity", captureFade);
-            await Task.Delay(duration);
+            var storyboard = new Storyboard();
+            AddSettingsAnimation(storyboard, SettingsHost, "Opacity", showSettings ? 0 : 1, showSettings ? 1 : 0, durationMs);
+            AddSettingsAnimation(storyboard, _settingsHostTranslate, "Y", showSettings ? 14 : 0, showSettings ? 0 : -10, durationMs);
+            AddSettingsAnimation(storyboard, CaptureToolbar, "Opacity", showSettings ? 1 : 0, showSettings ? 0 : 1, durationMs);
+            AddSettingsAnimation(storyboard, CaptureContent, "Opacity", showSettings ? 1 : 0, showSettings ? 0 : 1, durationMs);
+            storyboard.Begin();
+            await Task.Delay(durationMs);
+            storyboard.Stop();
+            SettingsHost.Opacity = showSettings ? 1 : 0;
+            _settingsHostTranslate.Y = showSettings ? 0 : -10;
+            CaptureToolbar.Opacity = showSettings ? 0 : 1;
+            CaptureContent.Opacity = showSettings ? 0 : 1;
         }
 
-        private static void SetOpacity(FrameworkElement element, float opacity)
+        private static void AddSettingsAnimation(Storyboard storyboard, DependencyObject target,
+            string property, double from, double to, int durationMs)
         {
-            var visual = ElementCompositionPreview.GetElementVisual(element);
-            visual.StopAnimation("Opacity");
-            visual.StopAnimation("Offset");
-            visual.Opacity = opacity;
-            visual.Offset = Vector3.Zero;
+            var animation = new DoubleAnimation
+            {
+                From = from,
+                To = to,
+                Duration = new Duration(TimeSpan.FromMilliseconds(durationMs)),
+                EnableDependentAnimation = true,
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            Storyboard.SetTarget(animation, target);
+            Storyboard.SetTargetProperty(animation, property);
+            storyboard.Children.Add(animation);
         }
 
         private async Task ExitApplicationAsync()
@@ -2291,7 +2291,6 @@ namespace Clippr
                 await _voiceCommandService.DisposeAsync();
                 _voiceCommandService = null;
             }
-            VoiceStatusText.Visibility = Visibility.Collapsed;
             _tray?.Dispose();
             _tray = null;
             _audioMeterTimer.Stop();

@@ -181,8 +181,6 @@
                                 <Ellipse Width="9" Height="9" Fill="{ThemeResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" />
                                 <TextBlock x:Name="ReplayMessage" Text="Replay starting…" VerticalAlignment="Center"
                                            Foreground="#F0F3F5" FontSize="12" TextTrimming="CharacterEllipsis" />
-                                <TextBlock x:Name="VoiceStatusText" Visibility="Collapsed" VerticalAlignment="Center"
-                                           Foreground="#B9C8D2" FontSize="12" TextTrimming="CharacterEllipsis" />
                                 <TextBlock x:Name="EncodingMessage" Text="" VerticalAlignment="Center"
                                            Foreground="#C1C9CE" FontSize="12" TextTrimming="CharacterEllipsis" />
                                 <Button x:Name="SavedFileActionsButton" Content="Saved file actions" Visibility="Collapsed"
