@@ -127,9 +127,10 @@ public sealed partial class SettingsView : UserControl
         CustomLengthBox.Value = _draft.ClipLengthSeconds;
         CustomLengthRow.Visibility = GetTag(ClipLengthCombo) == "custom" ? Visibility.Visible : Visibility.Collapsed;
         ClipFolderBox.Text = _draft.ClipFolder;
-        AutoCaptureCheck.IsOn = _draft.StartCaptureAutomatically;
-        MinimizeToTrayCheck.IsOn = _draft.MinimizeToTrayOnClose;
-        StartWithWindowsCheck.IsOn = _draft.StartWithWindows;
+        AutoCaptureCheck.IsChecked = _draft.StartCaptureAutomatically;
+        MinimizeToTrayCheck.IsChecked = _draft.MinimizeToTrayOnClose;
+        KeepCaptureRunningWhileHiddenCheck.IsChecked = _draft.KeepCaptureRunningWhileHidden;
+        StartWithWindowsCheck.IsChecked = _draft.StartWithWindows;
         ShowPreviewDiagnosticsCheck.IsOn = _draft.ShowPreviewDiagnostics;
         AdvancedToggle.IsOn = _draft.AdvancedModeEnabled;
         DesktopAudioCheck.IsOn = _draft.DesktopAudioEnabled;
@@ -162,9 +163,10 @@ public sealed partial class SettingsView : UserControl
         VoiceCooldownBox.ValueChanged += OnVoiceCooldownChanged;
         VoiceCommandSearchBox.TextChanged += (_, _) => FilterVoiceCommands();
         ScreenshotJpegQualityBox.ValueChanged += OnScreenshotJpegQualityChanged;
-        AutoCaptureCheck.Toggled += OnSettingChanged;
-        MinimizeToTrayCheck.Toggled += OnSettingChanged;
-        StartWithWindowsCheck.Toggled += OnSettingChanged;
+        AutoCaptureCheck.Click += OnSettingChanged;
+        MinimizeToTrayCheck.Click += OnSettingChanged;
+        KeepCaptureRunningWhileHiddenCheck.Click += OnSettingChanged;
+        StartWithWindowsCheck.Click += OnSettingChanged;
         ShowPreviewDiagnosticsCheck.Toggled += OnSettingChanged;
         DesktopAudioCheck.Toggled += OnSettingChanged;
         MicrophoneCheck.Toggled += OnSettingChanged;
@@ -496,7 +498,6 @@ public sealed partial class SettingsView : UserControl
     private void OnAdvancedToggled(object sender, RoutedEventArgs e)
     {
         var visibility = AdvancedToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
-        AdvancedStartupRow.Visibility = visibility;
         AdvancedPreviewDiagnosticsCard.Visibility = visibility;
         AdvancedEncoderRow.Visibility = visibility;
         AdvancedApplicationAudioCard.Visibility = visibility;
@@ -531,9 +532,10 @@ public sealed partial class SettingsView : UserControl
         _draft.Resolution = GetTag(ResolutionCombo);
         _draft.FrameRate = uint.TryParse(GetTag(FrameRateCombo), out var fps) ? fps : 30;
         _draft.Encoder = GetTag(EncoderCombo);
-        _draft.StartCaptureAutomatically = AutoCaptureCheck.IsOn;
-        _draft.MinimizeToTrayOnClose = MinimizeToTrayCheck.IsOn;
-        _draft.StartWithWindows = StartWithWindowsCheck.IsOn;
+        _draft.StartCaptureAutomatically = AutoCaptureCheck.IsChecked == true;
+        _draft.MinimizeToTrayOnClose = MinimizeToTrayCheck.IsChecked == true;
+        _draft.KeepCaptureRunningWhileHidden = KeepCaptureRunningWhileHiddenCheck.IsChecked == true;
+        _draft.StartWithWindows = StartWithWindowsCheck.IsChecked == true;
         _draft.AdvancedModeEnabled = AdvancedToggle.IsOn;
         _draft.ShowPreviewDiagnostics = ShowPreviewDiagnosticsCheck.IsOn;
         _draft.VoiceCommandsEnabled = VoiceCommandsCheck.IsOn;

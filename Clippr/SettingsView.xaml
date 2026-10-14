@@ -23,6 +23,36 @@
             <Setter Property="CornerRadius" Value="9" />
             <Setter Property="Padding" Value="10" />
         </Style>
+        <Style x:Key="BehaviourToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="50" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid Width="50" Height="28">
+                            <Border x:Name="Track" Width="50" Height="26" CornerRadius="13" Background="#242A31"
+                                    BorderBrush="#9BA6B1" BorderThickness="1" VerticalAlignment="Center" />
+                            <Ellipse x:Name="Knob" Width="20" Height="20" Margin="3,0" HorizontalAlignment="Left"
+                                     VerticalAlignment="Center" Fill="#C5CDD5" />
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CheckStates">
+                                    <VisualState x:Name="Unchecked" />
+                                    <VisualState x:Name="Checked">
+                                        <VisualState.Setters>
+                                            <Setter Target="Track.Background" Value="#2E98F0" />
+                                            <Setter Target="Track.BorderBrush" Value="#2E98F0" />
+                                            <Setter Target="Knob.Fill" Value="White" />
+                                            <Setter Target="Knob.HorizontalAlignment" Value="Right" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="VoicePhraseEditorStyle" TargetType="TextBox">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -148,41 +178,56 @@
                                     <TextBlock Text="Control when capture starts and how ClipDat behaves." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
                                 <Grid ColumnDefinitions="*,Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="8">
-                                        <Border Background="#22282F" CornerRadius="9" Padding="12">
-                                            <Grid ColumnDefinitions="44,*,Auto" ColumnSpacing="12">
+                                        <Border Background="#22282F" CornerRadius="9" Padding="6">
+                                            <Grid ColumnDefinitions="44,*,Auto" ColumnSpacing="10">
                                                 <Border Width="44" Height="44" CornerRadius="9" Background="#2B3138">
                                                     <FontIcon Glyph="&#xE768;" FontFamily="Segoe Fluent Icons" FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                 </Border>
                                                 <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
-                                                    <TextBlock Text="Start capture on launch" TextWrapping="Wrap" />
-                                                    <TextBlock Text="Begin recording when ClipDat opens." FontSize="11" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    <TextBlock Text="Start capture when ClipDat opens" FontSize="13" TextWrapping="Wrap" />
+                                                    <TextBlock Text="Begin recording automatically" FontSize="11" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                                 </StackPanel>
-                                                <ToggleSwitch x:Name="AutoCaptureCheck" Grid.Column="2" Width="52" MinWidth="0" OnContent="" OffContent="" VerticalAlignment="Center" AutomationProperties.Name="Start capture when ClipDat opens" />
+                                                <ToggleButton x:Name="AutoCaptureCheck" Grid.Column="2" Style="{StaticResource BehaviourToggleStyle}" VerticalAlignment="Center" AutomationProperties.Name="Start capture when ClipDat opens" />
                                             </Grid>
                                         </Border>
-                                        <Border x:Name="AdvancedStartupRow" Grid.Row="1" Grid.ColumnSpan="3" Background="#22282F" CornerRadius="9" Padding="12" Visibility="Collapsed">
-                                            <Grid ColumnDefinitions="44,*,Auto" ColumnSpacing="12">
+                                        <Border Background="#22282F" Grid.Row="1" CornerRadius="9" Padding="6">
+                                            <Grid ColumnDefinitions="44,*,Auto" ColumnSpacing="10">
                                                 <Border Width="44" Height="44" CornerRadius="9" Background="#2B3138">
-                                                    <FontIcon Glyph="&#xE8D7;" FontFamily="Segoe Fluent Icons" FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Path Width="22" Height="22" Stretch="Uniform" Stroke="White" StrokeThickness="1.7" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          Data="M 4,3 L 18,3 Q 21,3 21,6 L 21,18 Q 21,21 18,21 L 4,21 Q 1,21 1,18 L 1,6 Q 1,3 4,3 Z M 7,12 L 16,12 M 13,9 L 16,12 L 13,15" />
                                                 </Border>
                                                 <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
-                                                    <TextBlock Text="Start ClipDat when I sign in" TextWrapping="Wrap" />
+                                                    <TextBlock Text="Start ClipDat when I sign in" FontSize="13" TextWrapping="Wrap" />
                                                     <TextBlock Text="Launch automatically with Windows" FontSize="11" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                                 </StackPanel>
-                                                <ToggleSwitch x:Name="StartWithWindowsCheck" Grid.Column="2" Width="52" MinWidth="0" OnContent="" OffContent="" VerticalAlignment="Center" AutomationProperties.Name="Start ClipDat when I sign in" />
+                                                <ToggleButton x:Name="StartWithWindowsCheck" Grid.Column="2" Style="{StaticResource BehaviourToggleStyle}" VerticalAlignment="Center" AutomationProperties.Name="Start ClipDat when I sign in" />
                                             </Grid>
                                         </Border>
-                                    <Border Grid.Column="1" Width="1" Background="#39424B" Margin="0,4" />
-                                        <Border Grid.Column="2" Background="#22282F" CornerRadius="9" Padding="12">
-                                            <Grid ColumnDefinitions="44,*,Auto" ColumnSpacing="12">
+                                    <Border Grid.Column="1" Grid.RowSpan="2" Width="1" Background="#39424B" Margin="0,4" />
+                                        <Border Grid.Column="2" Background="#22282F" CornerRadius="9" Padding="6">
+                                            <Grid ColumnDefinitions="44,*,Auto" ColumnSpacing="10">
                                                 <Border Width="44" Height="44" CornerRadius="9" Background="#2B3138">
-                                                    <FontIcon Glyph="&#xE718;" FontFamily="Segoe Fluent Icons" FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Path Width="22" Height="22" Stretch="Uniform" Stroke="White" StrokeThickness="1.7" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          Data="M 4,4 L 18,4 Q 20,4 20,6 L 20,18 Q 20,20 18,20 L 4,20 Q 2,20 2,18 L 2,6 Q 2,4 4,4 Z M 7,12 L 15,12" />
                                                 </Border>
                                                 <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
-                                                    <TextBlock Text="Minimize to tray on close" TextWrapping="Wrap" />
-                                                    <TextBlock Text="Capture continues while hidden until you exit ClipDat." FontSize="11" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    <TextBlock Text="Minimize to notification area" FontSize="13" TextWrapping="Wrap" />
+                                                    <TextBlock Text="Keep running in the background" FontSize="11" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                                 </StackPanel>
-                                                <ToggleSwitch x:Name="MinimizeToTrayCheck" Grid.Column="2" Width="52" MinWidth="0" OnContent="" OffContent="" VerticalAlignment="Center" AutomationProperties.Name="Minimize ClipDat to the notification area when closing" />
+                                                <ToggleButton x:Name="MinimizeToTrayCheck" Grid.Column="2" Style="{StaticResource BehaviourToggleStyle}" VerticalAlignment="Center" AutomationProperties.Name="Minimize ClipDat to the notification area when closing" />
+                                            </Grid>
+                                        </Border>
+                                        <Border Grid.Column="2" Grid.Row="1" Background="#22282F" CornerRadius="9" Padding="6">
+                                            <Grid ColumnDefinitions="44,*,Auto" ColumnSpacing="10">
+                                                <Border Width="44" Height="44" CornerRadius="9" Background="#2B3138">
+                                                    <Path Width="22" Height="22" Stretch="Uniform" Stroke="White" StrokeThickness="1.7" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          Data="M 2,11 C 7,3 17,3 22,11 C 19,16 14,18 9,17 M 4,18 L 20,4 M 10,10 C 10,13 13,15 16,13" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                                    <TextBlock Text="Keep capture running while hidden" FontSize="12" TextWrapping="Wrap" />
+                                                    <TextBlock Text="Continue recording when minimized" FontSize="11" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                </StackPanel>
+                                                <ToggleButton x:Name="KeepCaptureRunningWhileHiddenCheck" Grid.Column="2" Style="{StaticResource BehaviourToggleStyle}" VerticalAlignment="Center" AutomationProperties.Name="Keep capture running while hidden" />
                                             </Grid>
                                         </Border>
                                 </Grid>

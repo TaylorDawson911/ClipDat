@@ -60,6 +60,10 @@ namespace Clippr
         private bool _exitRequested;
         private bool _exitPromptActive;
         private bool _capturePaused;
+        private bool _hiddenToTray;
+        private bool _autoPausedForTray;
+        private bool _manualCaptureOverrideWhileHidden;
+        private readonly SemaphoreSlim _trayVisibilityGate = new(1, 1);
         private bool _recovering;
         private bool _reconnecting;
         private bool _recording;
@@ -172,7 +176,7 @@ namespace Clippr
                     () => _capturePaused,
                     () => _capture != IntPtr.Zero && _clippingEnabled,
                     () => _capture != IntPtr.Zero && !_capturePaused && _activeSource == _selectedSource,
-                    OnTrayCommand, OnSystemPowerChanged, OnDisplayConfigurationChanged);
+                    OnTrayCommand, OnSystemPowerChanged, OnDisplayConfigurationChanged, OnTrayVisibilityChanged);
             }
             catch (Exception ex)
             {
@@ -344,6 +348,8 @@ namespace Clippr
                     OnScreenshotClick(ScreenshotButton, new RoutedEventArgs());
                     break;
                 case TrayCommand.PauseResumeCapture:
+                    _autoPausedForTray = false;
+                    _manualCaptureOverrideWhileHidden = _hiddenToTray;
                     _ = ToggleCapturePauseAsync();
                     break;
                 case TrayCommand.OpenClipsFolder:
@@ -359,15 +365,50 @@ namespace Clippr
             }
         }
 
-        private async Task ToggleCapturePauseAsync()
+        private void OnTrayVisibilityChanged(bool visible)
+        {
+            _hiddenToTray = !visible;
+            if (visible) _manualCaptureOverrideWhileHidden = false;
+            _ = ApplyTrayCapturePreferenceAsync();
+        }
+
+        private async Task ApplyTrayCapturePreferenceAsync()
+        {
+            await _trayVisibilityGate.WaitAsync();
+            try
+            {
+                if (_closing || _capture == IntPtr.Zero) return;
+                if (_hiddenToTray)
+                {
+                    if (!_settings.KeepCaptureRunningWhileHidden && !_recording && !_capturePaused &&
+                        !_manualCaptureOverrideWhileHidden)
+                    {
+                        await ToggleCapturePauseAsync(automatic: true);
+                        _autoPausedForTray = _capturePaused;
+                    }
+                }
+                else if (_autoPausedForTray)
+                {
+                    _autoPausedForTray = false;
+                    if (_capturePaused) await ToggleCapturePauseAsync(automatic: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                LocalReliabilityLog.Error("tray-capture", ex.HResult, ex.Message);
+            }
+            finally { _trayVisibilityGate.Release(); }
+        }
+
+        private async Task ToggleCapturePauseAsync(bool automatic = false)
         {
             if (_capture == IntPtr.Zero || _closing) return;
             if (!_capturePaused)
             {
                 _capturePaused = true;
                 await StopCaptureAsync();
-                ShowPreviewMessage("Capture paused · choose Resume Capture from the tray to continue");
-                ReplayMessage.Text = "Capture paused";
+                if (!automatic) ShowPreviewMessage("Capture paused · choose Resume Capture from the tray to continue");
+                ReplayMessage.Text = automatic ? "Capture paused while hidden" : "Capture paused";
                 return;
             }
 
@@ -2170,6 +2211,9 @@ namespace Clippr
         {
             UpdateStorageHealth();
             CheckAudioCaptureHealth();
+            if (_hiddenToTray && !_settings.KeepCaptureRunningWhileHidden && !_recording && !_capturePaused &&
+                !_manualCaptureOverrideWhileHidden)
+                _ = ApplyTrayCapturePreferenceAsync();
         }
 
         private void UpdateStorageHealth()

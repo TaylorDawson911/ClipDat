@@ -64,6 +64,7 @@ internal sealed class SystemTrayController : IDisposable
     private readonly Action<TrayCommand> _commandHandler;
     private readonly Action<bool> _powerHandler;
     private readonly Action _displayChangeHandler;
+    private readonly Action<bool> _visibilityChangedHandler;
     private readonly SubclassProc _subclassProc;
     private readonly IntPtr _icon;
     private bool _disposed;
@@ -151,7 +152,7 @@ internal sealed class SystemTrayController : IDisposable
     public SystemTrayController(IntPtr window, DispatcherQueue dispatcher, string iconPath,
         Func<bool> minimizeToTray, Func<bool> capturePaused, Func<bool> canSaveClip,
         Func<bool> canTakeScreenshot, Action<TrayCommand> commandHandler,
-        Action<bool> powerHandler, Action displayChangeHandler)
+        Action<bool> powerHandler, Action displayChangeHandler, Action<bool> visibilityChangedHandler)
     {
         _window = window;
         _dispatcher = dispatcher;
@@ -162,6 +163,7 @@ internal sealed class SystemTrayController : IDisposable
         _commandHandler = commandHandler;
         _powerHandler = powerHandler;
         _displayChangeHandler = displayChangeHandler;
+        _visibilityChangedHandler = visibilityChangedHandler;
         _subclassProc = WindowProc;
 
         _icon = LoadImage(IntPtr.Zero, iconPath, ImageIcon, 0, 0, LrLoadFromFile);
@@ -193,10 +195,15 @@ internal sealed class SystemTrayController : IDisposable
     public void Restore()
     {
         ShowWindow(_window, SwRestore);
+        _dispatcher.TryEnqueue(() => _visibilityChangedHandler(true));
         _ = SetForegroundWindow(_window);
     }
 
-    public void Hide() => ShowWindow(_window, SwHide);
+    public void Hide()
+    {
+        ShowWindow(_window, SwHide);
+        _dispatcher.TryEnqueue(() => _visibilityChangedHandler(false));
+    }
 
     private NotifyIconData CreateNotifyIconData() => new()
     {
@@ -225,6 +232,7 @@ internal sealed class SystemTrayController : IDisposable
         if (message == WmClose && !_systemEnding && _minimizeToTray())
         {
             ShowWindow(window, SwHide);
+            _dispatcher.TryEnqueue(() => _visibilityChangedHandler(false));
             return IntPtr.Zero;
         }
 

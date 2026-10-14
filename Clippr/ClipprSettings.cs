@@ -57,6 +57,7 @@ public sealed class ClipprSettings
     public string NotificationStyle { get; set; } = "Windows";
     public bool StartWithWindows { get; set; }
     public bool MinimizeToTrayOnClose { get; set; } = true;
+    public bool KeepCaptureRunningWhileHidden { get; set; } = true;
     public bool StartCaptureAutomatically { get; set; } = true;
     public int ReplayMemoryLimitMb { get; set; } = 128;
     public int MinimumFreeDiskSpaceGb { get; set; } = 2;

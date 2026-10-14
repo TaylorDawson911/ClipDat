@@ -29,7 +29,8 @@ namespace
         L"desktopMuted", L"microphoneMuted", L"gameMuted", L"chatMuted", L"musicMuted",
         L"screenshotHotkey", L"screenshotFormat", L"screenshotJpegQuality",
         L"copyScreenshotToClipboard", L"screenshotNotificationSound", L"notificationStyle",
-        L"minimizeToTrayOnClose", L"minimumFreeDiskSpaceGb", L"voiceCommandsEnabled",
+        L"minimizeToTrayOnClose", L"keepCaptureRunningWhileHidden",
+        L"minimumFreeDiskSpaceGb", L"voiceCommandsEnabled",
         L"voiceWakePhrase", L"voiceConfidenceThreshold", L"voiceCooldownSeconds",
         L"voiceCommandPhrases", L"advancedModeEnabled", L"showPreviewDiagnostics"
     };
