@@ -2192,16 +2192,17 @@ namespace Clippr
                 ShowInfoError("Storage space is back above the configured reserve.");
             }
 
-            var captureText = _capture == IntPtr.Zero ? "Capture not initialized" :
-                NativeCapture.ClipprGetCaptureStatus(_capture).State switch
+            var captureState = _capture == IntPtr.Zero ? 0 : NativeCapture.ClipprGetCaptureStatus(_capture).State;
+            var replayState = _capture == IntPtr.Zero ? 0 : NativeCapture.ClipprGetReplayStatus(_capture).State;
+            var captureText = captureState switch
                 {
                     1 => "Capture running", 2 => "Capture target disconnected", 3 => "Capture error",
                     5 => "Application capture minimized", _ => "Capture stopped"
                 };
-            var replayText = _capture != IntPtr.Zero && NativeCapture.ClipprGetReplayStatus(_capture).State == 2
-                ? "replay buffering" : "replay not buffering";
-            var health = $"{captureText} · {replayText}\nClip drive: {FormatFreeSpace(clipFree)} free · Replay spool: {FormatFreeSpace(spoolFree)} free · Reserve: {_settings.MinimumFreeDiskSpaceGb} GB";
-            _settingsView?.RefreshReliabilityDiagnostics(health, LocalReliabilityLog.ReadRecent());
+            var healthy = captureState == 1 && replayState == 2 && !low;
+            var status = low ? "Low disk space" : healthy ? "All systems normal" : captureText;
+            var health = $"Clip drive: {FormatFreeSpace(clipFree)} free  ·  Replay spool: {FormatFreeSpace(spoolFree)} free  ·  Reserve: {_settings.MinimumFreeDiskSpaceGb} GB";
+            _settingsView?.RefreshReliabilityDiagnostics(health, status, healthy);
         }
 
         private static ulong GetAvailableBytes(string directory)

@@ -88,14 +88,14 @@
                         <GradientStop Color="#1E2023" Offset="1" />
                     </LinearGradientBrush>
                 </Grid.Background>
-                <ScrollViewer x:Name="CapturePage" Grid.Row="0" Margin="28,24,8,16" VerticalScrollBarVisibility="Auto">
-                    <StackPanel Spacing="14" Margin="0,0,20,0" MaxWidth="1220" HorizontalAlignment="Stretch">
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="20" Margin="0,2,0,4">
-                            <Border Width="64" Height="64" CornerRadius="15" Background="#263C55" BorderBrush="#3F6589" BorderThickness="1" VerticalAlignment="Center">
-                                <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe Fluent Icons" FontSize="30" Foreground="White" />
+                <ScrollViewer x:Name="CapturePage" Grid.Row="0" Margin="24,20,8,14" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="16" Margin="0,0,16,0" HorizontalAlignment="Stretch">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                            <Border Width="58" Height="58" CornerRadius="14" Background="#263C55" BorderBrush="#3F6589" BorderThickness="1" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe Fluent Icons" FontSize="27" Foreground="White" />
                             </Border>
-                            <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-                                <TextBlock Text="Capture" FontSize="28" FontWeight="SemiBold" />
+                            <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                <TextBlock Text="Capture" FontSize="27" FontWeight="SemiBold" />
                                 <TextBlock Text="Choose what ClipDat captures and how recordings are encoded." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
                         </Grid>
@@ -205,32 +205,39 @@
                         </Border>
 
                         <Border Style="{StaticResource SettingsCardStyle}">
-                            <StackPanel Spacing="13">
+                            <StackPanel Spacing="12">
                                 <StackPanel Spacing="3">
                                     <TextBlock Text="Storage" FontSize="17" FontWeight="SemiBold" />
-                                    <TextBlock Text="Manage disk space and view capture health." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Text="Manage disk space and automatic behaviour." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
-                                <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="18">
+                                <Grid ColumnDefinitions="*,Auto,*" ColumnSpacing="16">
                                     <Grid ColumnDefinitions="48,*" ColumnSpacing="12" VerticalAlignment="Center">
-                                        <Border Width="48" Height="54" CornerRadius="10" Background="#2B3138" VerticalAlignment="Top">
-                                            <FontIcon Glyph="&#xE80F;" FontFamily="Segoe Fluent Icons" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <Border Width="48" Height="48" CornerRadius="10" Background="#2B3138" VerticalAlignment="Top">
+                                            <Path Width="22" Height="22" Stretch="Uniform" Stroke="White" StrokeThickness="1.7" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  Data="M 3,5 C 3,2 21,2 21,5 C 21,8 3,8 3,5 Z M 3,5 L 3,19 C 3,22 21,22 21,19 L 21,5 M 3,12 C 3,15 21,15 21,12" />
                                         </Border>
-                                        <StackPanel Grid.Column="1" Spacing="6">
-                                            <TextBlock Text="Minimum free disk space" FontWeight="SemiBold" />
-                                            <ComboBox x:Name="MinimumFreeSpaceCombo" Width="210" HorizontalAlignment="Left" />
-                                            <TextBlock Text="Pause disk-backed replay buffering and warn when free space is below this reserve." FontSize="11" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                                <TextBlock Text="Minimum free disk space" VerticalAlignment="Center" />
+                                                <ComboBox x:Name="MinimumFreeSpaceCombo" Grid.Column="1" MinWidth="115" HorizontalAlignment="Stretch" />
+                                            </Grid>
+                                            <TextBlock Text="Pause capture and warn when free space falls below this amount." FontSize="11" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                         </StackPanel>
                                     </Grid>
                                     <Border Grid.Column="1" Width="1" Background="#39424B" Margin="0,4" />
                                     <Grid Grid.Column="2" ColumnDefinitions="48,*" ColumnSpacing="12" VerticalAlignment="Center">
-                                        <Border Width="48" Height="54" CornerRadius="10" Background="#2B3138" VerticalAlignment="Top">
-                                            <FontIcon Glyph="&#xE9D9;" FontFamily="Segoe Fluent Icons" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <Border Width="48" Height="48" CornerRadius="10" Background="#2B3138" VerticalAlignment="Top">
+                                            <Path Width="22" Height="22" Stretch="Uniform" Stroke="White" StrokeThickness="1.7" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  Data="M 3,5 C 3,2 21,2 21,5 C 21,8 3,8 3,5 Z M 3,5 L 3,19 C 3,22 21,22 21,19 L 21,5 M 3,12 C 3,15 21,15 21,12" />
                                         </Border>
-                                        <StackPanel Grid.Column="1" Spacing="6">
+                                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
                                             <TextBlock Text="Recording health" FontWeight="SemiBold" />
-                                            <TextBlock x:Name="ReliabilityHealthText" Text="Checking capture and storage health…" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                            <TextBlock x:Name="ReliabilityErrorsText" Text="No recent errors." TextWrapping="Wrap" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                            <TextBlock Text="Technical errors are logged locally with a rotating size limit. Logs are never uploaded." TextWrapping="Wrap" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <Ellipse x:Name="ReliabilityHealthDot" Width="7" Height="7" Fill="#7B8793" VerticalAlignment="Center" />
+                                                <TextBlock x:Name="ReliabilityHealthStatus" Text="Checking capture and storage…" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            </StackPanel>
+                                            <TextBlock x:Name="ReliabilityHealthText" Text="Checking available space…" TextWrapping="Wrap" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock x:Name="AppStorageText" Text="ClipDat app files and data: calculating…" TextWrapping="Wrap" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                         </StackPanel>
                                     </Grid>
                                 </Grid>

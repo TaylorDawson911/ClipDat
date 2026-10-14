@@ -53,6 +53,7 @@ public sealed partial class SettingsView : UserControl
             SettingsStatus.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(ColorHelper.FromArgb(255, 237, 190, 120));
         }
         SettingsNavigation.SelectedItem = SettingsNavigation.MenuItems.OfType<NavigationViewItem>().FirstOrDefault();
+        _ = RefreshAppStorageUsageAsync();
     }
 
     private void PopulateControls()
@@ -556,11 +557,74 @@ public sealed partial class SettingsView : UserControl
         SettingsStatus.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(ColorHelper.FromArgb(255, 174, 182, 188));
     }
 
-    internal void RefreshReliabilityDiagnostics(string health, string recentErrors)
+    internal void RefreshReliabilityDiagnostics(string health, string status, bool healthy)
     {
         ReliabilityHealthText.Text = health;
-        ReliabilityErrorsText.Text = string.IsNullOrWhiteSpace(recentErrors) ? "No recent errors." : recentErrors;
+        ReliabilityHealthStatus.Text = status;
+        var color = healthy ? ColorHelper.FromArgb(255, 48, 199, 117) : ColorHelper.FromArgb(255, 244, 178, 70);
+        ReliabilityHealthDot.Fill = new SolidColorBrush(color);
+        ReliabilityHealthStatus.Foreground = new SolidColorBrush(color);
     }
+
+    private async Task RefreshAppStorageUsageAsync()
+    {
+        try
+        {
+            var roots = new[]
+            {
+                AppContext.BaseDirectory,
+                Windows.Storage.ApplicationData.Current.LocalFolder.Path,
+                Windows.Storage.ApplicationData.Current.LocalCacheFolder.Path,
+                Windows.Storage.ApplicationData.Current.RoamingFolder.Path,
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Clippr")
+            }.Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            var clips = Path.GetFullPath(_draft.ClipFolder);
+            var total = await Task.Run(() => MeasureAppFiles(roots, clips));
+            AppStorageText.Text = $"ClipDat app files and data: {FormatAppSize(total)} · recordings excluded";
+        }
+        catch
+        {
+            AppStorageText.Text = "ClipDat app storage size unavailable";
+        }
+    }
+
+    private static long MeasureAppFiles(string[] roots, string clips)
+    {
+        long total = 0;
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var pending = new Stack<string>(roots);
+        while (pending.Count > 0)
+        {
+            var directory = pending.Pop();
+            if (!visited.Add(directory) || IsInside(directory, clips)) continue;
+            try
+            {
+                if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0) continue;
+                foreach (var file in Directory.EnumerateFiles(directory))
+                {
+                    try
+                    {
+                        var info = new FileInfo(file);
+                        if ((info.Attributes & FileAttributes.ReparsePoint) == 0) total += info.Length;
+                    }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+                foreach (var child in Directory.EnumerateDirectories(directory)) pending.Push(child);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+        return total;
+    }
+
+    private static bool IsInside(string path, string parent) =>
+        path.Equals(parent, StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith(parent.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
+    private static string FormatAppSize(long bytes) => bytes >= 1024L * 1024 * 1024
+        ? $"{bytes / (1024d * 1024 * 1024):0.0} GB"
+        : $"{bytes / (1024d * 1024):0.0} MB";
 
     private void OnScreenshotJpegQualityChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
     {
