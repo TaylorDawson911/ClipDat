@@ -123,11 +123,12 @@ public sealed partial class SettingsView : UserControl
         NotificationSoundCheck.IsOn = _draft.SaveNotificationSound;
 
         PopulateDisplays();
-        PopulateApplications(PreferredApplicationCombo, _draft.PreferredApplicationProcessId);
+        var applications = _mainWindow.EnumerateSettingsApplications();
+        PopulateApplications(PreferredApplicationCombo, _draft.PreferredApplicationProcessId, applications);
         PopulateAudioDevices(renderDevices: true, OutputDeviceCombo, _draft.AudioOutputId);
         PopulateAudioDevices(renderDevices: false, InputDeviceCombo, _draft.AudioInputId);
-        PopulateApplications(GameAudioCombo, _draft.GameAudioProcessId);
-        PopulateApplications(DiscordAudioCombo, _draft.DiscordAudioProcessId);
+        PopulateApplications(GameAudioCombo, _draft.GameAudioProcessId, applications);
+        PopulateApplications(DiscordAudioCombo, _draft.DiscordAudioProcessId, applications);
     }
 
     private void WireEvents()
@@ -407,11 +408,11 @@ public sealed partial class SettingsView : UserControl
         SelectTag(combo, selectedId);
     }
 
-    private void PopulateApplications(ComboBox combo, uint selectedPid)
+    private static void PopulateApplications(ComboBox combo, uint selectedPid, NativeCapture.Window[] applications)
     {
         combo.Items.Clear();
         combo.Items.Add(new ComboBoxItem { Content = "None", Tag = "0" });
-        foreach (var app in _mainWindow.EnumerateSettingsApplications())
+        foreach (var app in applications)
             combo.Items.Add(new ComboBoxItem { Content = app.ApplicationName, Tag = app.ProcessId.ToString() });
         SelectTag(combo, selectedPid.ToString());
     }

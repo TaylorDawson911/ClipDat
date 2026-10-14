@@ -53,6 +53,8 @@ namespace Clippr
         public App()
         {
             InitializeComponent();
+            UnhandledException += (_, args) =>
+                LocalReliabilityLog.Error("unhandled-ui", args.Exception?.HResult ?? 0, args.Message);
         }
 
         /// <summary>

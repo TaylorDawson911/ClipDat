@@ -198,7 +198,7 @@ namespace Clippr
             foreach (var meter in new[] { DesktopMeter, MicrophoneMeter, GameMeter, ChatMeter, MusicMeter })
                 ConfigureAudioMeter(meter);
             _audioMeterTimer.Start();
-            SettingsHost.KeyDown += OnSettingsHostKeyDown;
+            Content.KeyDown += OnSettingsHostKeyDown;
             _audioSaveTimer.Tick += (_, _) =>
             {
                 _audioSaveTimer.Stop();
@@ -307,6 +307,7 @@ namespace Clippr
                 WindowTitleText.Text = "Settings";
                 WindowTitleText.Margin = new Thickness(8, 0, 0, 0);
                 _settingsTransitioning = true;
+                BackToCaptureButton.Focus(FocusState.Programmatic);
                 _ = AnimateSettingsOpenAsync();
             }
             catch (Exception ex)
@@ -435,11 +436,12 @@ namespace Clippr
             CaptureToolbar.Opacity = 1;
             CaptureContent.Opacity = 1;
             _settingsTransitioning = false;
+            SettingsButton.Focus(FocusState.Programmatic);
         }
 
         private async Task AnimateSettingsSurfaceAsync(bool showSettings)
         {
-            const int durationMs = 220;
+            const int durationMs = 120;
             SettingsHost.Opacity = showSettings ? 0 : 1;
             _settingsHostTranslate.Y = showSettings ? 14 : 0;
             CaptureToolbar.Opacity = showSettings ? 1 : 0;
