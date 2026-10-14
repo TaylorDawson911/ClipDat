@@ -1,4 +1,5 @@
 # Visual Studio and editor state
+AGENTS.md
 .vs/
 .vscode/
 *.suo

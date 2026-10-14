@@ -39,6 +39,10 @@ Run `Install-ClipDat.ps1` beside the versioned MSIX for a per-user install. Pass
 
 PowerShell execution policy may require launching the helper from an approved PowerShell session. The MSIX itself can also be installed using Windows App Installer.
 
+## Update the local development package
+
+After editing XAML, exit ClipDat from its notification-area menu and run `packaging\Update-DevPackage.ps1 -Launch` from a PowerShell session. The script builds Debug x64, copies the matching executable, XBF files, and `resources.pri` into the registered development package, then registers and opens it. Use `-SkipBuild` only when the current Debug x64 build has already succeeded. An old `resources.pri` paired with new XBF files can crash WinUI while opening the window.
+
 ## Signing and publisher metadata
 
 Public distribution needs a trusted code-signing certificate and a publisher value matching the certificate subject. The current manifest's `CN=ryand` is a development identity, not verified publisher metadata. Do not publish the current identity or a self-signed test certificate as a production trust claim. Timestamp the package signature with the release organization’s approved timestamp service when signing through its normal release process.
