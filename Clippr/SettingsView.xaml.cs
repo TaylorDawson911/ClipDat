@@ -28,6 +28,7 @@ public sealed partial class SettingsView : UserControl
     private bool _ready;
     private bool _applying;
     private bool _transitioning;
+    private bool? _captureSourceCompact;
     private FrameworkElement? _currentPage;
     private FrameworkElement? _pendingPage;
     private string _feedbackUrl = "";
@@ -53,7 +54,19 @@ public sealed partial class SettingsView : UserControl
             SettingsStatus.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(ColorHelper.FromArgb(255, 237, 190, 120));
         }
         SettingsNavigation.SelectedItem = SettingsNavigation.MenuItems.OfType<NavigationViewItem>().FirstOrDefault();
+        CapturePage.SizeChanged += (_, _) => UpdateCaptureSourceLayout();
         _ = RefreshAppStorageUsageAsync();
+    }
+
+    private void UpdateCaptureSourceLayout()
+    {
+        var compact = CapturePage.ActualWidth < 1100;
+        if (_captureSourceCompact == compact) return;
+        _captureSourceCompact = compact;
+        CaptureSourceGrid.ColumnDefinitions[2].Width = compact ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+        Grid.SetColumn(CaptureApplicationField, compact ? 0 : 2);
+        Grid.SetRow(CaptureApplicationField, compact ? 1 : 0);
+        Grid.SetColumnSpan(CaptureApplicationField, compact ? 2 : 1);
     }
 
     private void PopulateControls()
