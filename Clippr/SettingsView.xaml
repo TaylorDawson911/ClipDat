@@ -547,9 +547,13 @@
                         </Grid>
                         <Border Style="{StaticResource SettingsCardStyle}">
                             <StackPanel Spacing="12">
-                                <TextBlock Text="Direct sharing unavailable" FontSize="17" FontWeight="SemiBold" />
-                                <TextBlock Text="This version has no verified public HTTPS endpoint. Your network may also block incoming connections. ClipDat cannot give another person a working browser link until both secure HTTPS and external reachability have been verified." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock Text="No video is uploaded. The local sharing server remains off, and no router or firewall settings are changed." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                  <TextBlock Text="Secure tunnel setup required" FontSize="17" FontWeight="SemiBold" />
+                                  <TextBlock Text="Quick Share is unavailable. A public browser link needs a Cloudflare account, a domain, a named tunnel, and a video use agreement that permits locally hosted clips. ClipDat has no configured or verified public endpoint yet." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                  <TextBlock Text="Sharing remains off. No video is uploaded and no router or firewall settings are changed. Cloudflare's standard public Tunnel plans may restrict video delivery." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                  <StackPanel Orientation="Horizontal" Spacing="8">
+                                      <Button Content="Cloudflare setup guide" Click="OnOpenTunnelGuideClick" />
+                                      <Button Content="Video plan requirements" Click="OnOpenTunnelVideoPolicyClick" />
+                                  </StackPanel>
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource SettingsCardStyle}">
@@ -565,7 +569,7 @@
                                         <ComboBoxItem Content="Until ClipDat closes" />
                                     </ComboBox>
                                 </Grid>
-                                <TextBlock Text="Expiration and revocation become available when direct links are supported. Copy Link is unavailable until ClipDat verifies that a friend can reach the link." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                  <TextBlock Text="Link controls will become available only when ClipDat can start and verify a permitted public HTTPS tunnel. No localhost or placeholder links are copied." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource SettingsCardStyle}">

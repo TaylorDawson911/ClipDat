@@ -19,7 +19,7 @@ namespace Clippr;
 internal sealed class LocalClipShareServer : IAsyncDisposable
 {
     internal sealed record ShareLink(string Url, DateTimeOffset ExpiresAt, string Token);
-    private sealed record SharedFile(string Path, DateTimeOffset ExpiresAt);
+    private sealed record SharedFile(string Path, string Root, DateTimeOffset ExpiresAt, CancellationTokenSource Revoked);
 
     private readonly object _gate = new();
     private readonly Dictionary<string, SharedFile> _files = new(StringComparer.Ordinal);
@@ -27,20 +27,27 @@ internal sealed class LocalClipShareServer : IAsyncDisposable
     private readonly ConcurrentDictionary<int, TcpClient> _clients = new();
     private readonly ConcurrentDictionary<int, Task> _handlers = new();
     private readonly CancellationTokenSource _stop = new();
+    private readonly string? _publicHostname;
     private TcpListener? _listener;
     private Task? _acceptTask;
     private bool _disposed;
     private int _nextClientId;
-    private const int MaxLinks = 16;
+    private const int MaxLinks = 3;
     private const int HeaderLimit = 8192;
     private const int ChunkBytes = 64 * 1024;
 
-    public ShareLink CreateLink(string filePath, TimeSpan lifetime)
+    public LocalClipShareServer(string? publicHostname = null)
+    {
+        _publicHostname = publicHostname;
+    }
+
+    public ShareLink CreateLink(string clipFolder, string filePath, TimeSpan lifetime)
     {
         if (lifetime <= TimeSpan.Zero || lifetime > TimeSpan.FromHours(1))
             throw new ArgumentOutOfRangeException(nameof(lifetime), "Local links can last up to one hour.");
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(clipFolder));
         var fullPath = Path.GetFullPath(filePath);
-        if (!File.Exists(fullPath)) throw new FileNotFoundException("The saved clip is no longer available.", fullPath);
+        ValidateSharedFile(root, fullPath);
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -49,7 +56,7 @@ internal sealed class LocalClipShareServer : IAsyncDisposable
             EnsureListenerLocked();
             var token = Base64Url(RandomNumberGenerator.GetBytes(32));
             var expiresAt = DateTimeOffset.UtcNow.Add(lifetime);
-            _files.Add(token, new SharedFile(fullPath, expiresAt));
+            _files.Add(token, new SharedFile(fullPath, root, expiresAt, new CancellationTokenSource()));
             var port = ((IPEndPoint)_listener!.LocalEndpoint).Port;
             return new ShareLink($"http://127.0.0.1:{port}/share/{token}", expiresAt, token);
         }
@@ -57,7 +64,28 @@ internal sealed class LocalClipShareServer : IAsyncDisposable
 
     public bool Revoke(string token)
     {
-        lock (_gate) return _files.Remove(token);
+        lock (_gate)
+        {
+            if (!_files.Remove(token, out var shared)) return false;
+            shared.Revoked.Cancel();
+            return true;
+        }
+    }
+
+    private static void ValidateSharedFile(string root, string path)
+    {
+        if (!string.Equals(Path.GetDirectoryName(path), root, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("Only clips directly inside the configured clips folder can be shared.");
+        var extension = Path.GetExtension(path);
+        if (!extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase) &&
+            !extension.Equals(".mkv", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("Only MP4 and MKV clips can be shared.", nameof(path));
+        if (!Directory.Exists(root) || (File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0)
+            throw new DirectoryNotFoundException("The configured clips folder is unavailable or redirects elsewhere.");
+        if (!File.Exists(path)) throw new FileNotFoundException("The saved clip is no longer available.", path);
+        if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+            throw new UnauthorizedAccessException("Linked files cannot be shared.");
+        if (new FileInfo(path).Length == 0) throw new IOException("An empty clip cannot be shared.");
     }
 
     public async ValueTask DisposeAsync()
@@ -66,6 +94,7 @@ internal sealed class LocalClipShareServer : IAsyncDisposable
         {
             if (_disposed) return;
             _disposed = true;
+            foreach (var shared in _files.Values) shared.Revoked.Cancel();
             _files.Clear();
             _stop.Cancel();
             _listener?.Stop();
@@ -136,7 +165,8 @@ internal sealed class LocalClipShareServer : IAsyncDisposable
                 var request = await ReadHeadersAsync(stream, token).ConfigureAwait(false);
                 if (request is null) return;
                 timeout.CancelAfter(Timeout.InfiniteTimeSpan);
-                var parsed = ParseRequest(request);
+                var port = ((IPEndPoint)client.Client.LocalEndPoint!).Port;
+                var parsed = ParseRequest(request, _publicHostname, port);
                 if (parsed.ErrorStatus != 0)
                 {
                     await WriteErrorAsync(stream, parsed.ErrorStatus, parsed.ErrorReason, token).ConfigureAwait(false);
@@ -159,8 +189,15 @@ internal sealed class LocalClipShareServer : IAsyncDisposable
                     await WriteErrorAsync(stream, 404, "Not Found", token).ConfigureAwait(false);
                     return;
                 }
-
-                await ServeFileAsync(stream, shared.Path, parsed.Method!, parsed.Range, token).ConfigureAwait(false);
+                try { ValidateSharedFile(shared.Root, shared.Path); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+                {
+                    Revoke(parsed.Token!);
+                    await WriteErrorAsync(stream, 404, "Not Found", token).ConfigureAwait(false);
+                    return;
+                }
+                using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(token, shared.Revoked.Token);
+                await ServeFileAsync(stream, shared.Path, parsed.Method!, parsed.Range, parsed.IfRange, requestCancellation.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) { }
             catch (IOException) { }
@@ -193,38 +230,57 @@ internal sealed class LocalClipShareServer : IAsyncDisposable
         return Array.Empty<byte>();
     }
 
-    private sealed record ParsedRequest(string? Method, string? Token, string? Range, int ErrorStatus, string ErrorReason);
+    private sealed record ParsedRequest(string? Method, string? Token, string? Range, string? IfRange, int ErrorStatus, string ErrorReason);
 
-    private static ParsedRequest ParseRequest(byte[] headerBytes)
+    private static ParsedRequest ParseRequest(byte[] headerBytes, string? publicHostname, int port)
     {
-        if (headerBytes.Length == 0) return new ParsedRequest(null, null, null, 431, "Request Header Fields Too Large");
+        if (headerBytes.Length == 0) return new ParsedRequest(null, null, null, null, 431, "Request Header Fields Too Large");
         string text;
         try { text = new UTF8Encoding(false, true).GetString(headerBytes); }
-        catch (DecoderFallbackException) { return new ParsedRequest(null, null, null, 400, "Bad Request"); }
+        catch (DecoderFallbackException) { return new ParsedRequest(null, null, null, null, 400, "Bad Request"); }
         var lines = text.Split("\r\n", StringSplitOptions.None);
         var first = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (first.Length != 3 || (first[2] != "HTTP/1.1" && first[2] != "HTTP/1.0"))
-            return new ParsedRequest(null, null, null, 400, "Bad Request");
+            return new ParsedRequest(null, null, null, null, 400, "Bad Request");
         if (first[0] != "GET" && first[0] != "HEAD")
-            return new ParsedRequest(null, null, null, 405, "Method Not Allowed");
+            return new ParsedRequest(null, null, null, null, 405, "Method Not Allowed");
         var target = first[1];
         if (target.Length == 0 || target[0] != '/' || target.Contains('?') || target.Contains('#'))
-            return new ParsedRequest(null, null, null, 400, "Bad Request");
+            return new ParsedRequest(null, null, null, null, 400, "Bad Request");
         var pieces = target.Split('/', StringSplitOptions.None);
         if (pieces.Length != 3 || pieces[0].Length != 0 || pieces[1] != "share" || !IsValidToken(pieces[2]))
-            return new ParsedRequest(null, null, null, 404, "Not Found");
+            return new ParsedRequest(null, null, null, null, 404, "Not Found");
         string? range = null;
+        string? ifRange = null;
+        string? host = null;
         foreach (var line in lines.AsSpan(1))
         {
             var colon = line.IndexOf(':');
             if (colon <= 0) continue;
             if (line[..colon].Equals("Range", StringComparison.OrdinalIgnoreCase))
             {
-                if (range is not null) return new ParsedRequest(null, null, null, 416, "Range Not Satisfiable");
+                if (range is not null) return new ParsedRequest(null, null, null, null, 400, "Bad Request");
                 range = line[(colon + 1)..].Trim();
             }
+            else if (line[..colon].Equals("If-Range", StringComparison.OrdinalIgnoreCase))
+            {
+                if (ifRange is not null) return new ParsedRequest(null, null, null, null, 400, "Bad Request");
+                ifRange = line[(colon + 1)..].Trim();
+            }
+            else if (line[..colon].Equals("Host", StringComparison.OrdinalIgnoreCase))
+            {
+                if (host is not null) return new ParsedRequest(null, null, null, null, 400, "Bad Request");
+                host = line[(colon + 1)..].Trim();
+            }
         }
-        return new ParsedRequest(first[0], pieces[2], range, 0, "");
+        if (host is null ||
+            (!host.Equals($"127.0.0.1:{port}", StringComparison.OrdinalIgnoreCase) &&
+             !host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) &&
+             (publicHostname is null ||
+              (!host.Equals(publicHostname, StringComparison.OrdinalIgnoreCase) &&
+               !host.Equals($"{publicHostname}:443", StringComparison.OrdinalIgnoreCase)))))
+            return new ParsedRequest(null, null, null, null, 421, "Misdirected Request");
+        return new ParsedRequest(first[0], pieces[2], range, ifRange, 0, "");
     }
 
     private static bool IsValidToken(string token)
@@ -235,11 +291,20 @@ internal sealed class LocalClipShareServer : IAsyncDisposable
         return true;
     }
 
-    private static async Task ServeFileAsync(NetworkStream stream, string path, string method, string? rangeHeader, CancellationToken token)
+    private static async Task ServeFileAsync(NetworkStream stream, string path, string method, string? rangeHeader,
+        string? ifRange, CancellationToken token)
     {
         await using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, ChunkBytes,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
         var length = file.Length;
+        var modified = File.GetLastWriteTimeUtc(path);
+        var modifiedToSecond = new DateTime(modified.Ticks - modified.Ticks % TimeSpan.TicksPerSecond, DateTimeKind.Utc);
+        var etag = $"\"{length:x}-{modified.Ticks:x}\"";
+        if (ifRange is not null && !string.Equals(ifRange, etag, StringComparison.Ordinal) &&
+            (!DateTimeOffset.TryParse(ifRange, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var ifRangeDate) ||
+             modifiedToSecond > ifRangeDate.UtcDateTime))
+            rangeHeader = null;
+        if (rangeHeader?.Contains(',') == true) rangeHeader = null;
         var start = 0L;
         var end = length - 1;
         var partial = false;
@@ -259,7 +324,9 @@ internal sealed class LocalClipShareServer : IAsyncDisposable
             .Append("HTTP/1.1 ").Append(status).Append("\r\n")
             .Append("Content-Type: ").Append(contentType).Append("\r\n")
             .Append("Content-Length: ").Append(count.ToString(CultureInfo.InvariantCulture)).Append("\r\n")
-            .Append("Accept-Ranges: bytes\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n");
+            .Append("Accept-Ranges: bytes\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\n")
+            .Append("ETag: ").Append(etag).Append("\r\n")
+            .Append("Last-Modified: ").Append(modified.ToString("R", CultureInfo.InvariantCulture)).Append("\r\nConnection: close\r\n");
         if (partial) headers.Append("Content-Range: bytes ").Append(start).Append('-').Append(end).Append('/').Append(length).Append("\r\n");
         headers.Append("Content-Disposition: inline; filename=ClipDat-clip").Append(extension).Append("\r\n\r\n");
         await WriteWithTimeoutAsync(stream, Encoding.ASCII.GetBytes(headers.ToString()), token).ConfigureAwait(false);
@@ -325,6 +392,10 @@ internal sealed class LocalClipShareServer : IAsyncDisposable
     {
         var now = DateTimeOffset.UtcNow;
         foreach (var token in new List<string>(_files.Keys))
-            if (_files[token].ExpiresAt <= now) _files.Remove(token);
+            if (_files[token].ExpiresAt <= now)
+            {
+                _files[token].Revoked.Cancel();
+                _files.Remove(token);
+            }
     }
 }

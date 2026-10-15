@@ -1080,4 +1080,16 @@ public sealed partial class SettingsView : UserControl
         try { await Launcher.LaunchUriAsync(uri); }
         catch (Exception ex) { FeedbackMessage.Text = $"Could not open feedback page: {ex.Message}"; }
     }
+
+    private async void OnOpenTunnelGuideClick(object sender, RoutedEventArgs e)
+    {
+        try { await Launcher.LaunchUriAsync(new Uri("https://developers.cloudflare.com/tunnel/get-started/")); }
+        catch { /* Setup guidance remains visible if the browser cannot open. */ }
+    }
+
+    private async void OnOpenTunnelVideoPolicyClick(object sender, RoutedEventArgs e)
+    {
+        try { await Launcher.LaunchUriAsync(new Uri("https://developers.cloudflare.com/cloudflare-one/faq/cloudflare-tunnels-faq/#large-file-and-streaming-traffic-through-tunnel")); }
+        catch { /* Setup guidance remains visible if the browser cannot open. */ }
+    }
 }
