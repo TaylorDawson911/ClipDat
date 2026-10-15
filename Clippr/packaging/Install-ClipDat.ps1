@@ -26,6 +26,8 @@ function New-FirstRunSettings {
         organizeClipsByGame = ($Mode -ne 'Minimal')
         screenshotsEnabled = ($Mode -ne 'Minimal')
         quickShareEnabled = ($Mode -ne 'Minimal')
+        quickShareMethod = 'AnonMP4'
+        quickShareAutoUpload = $false
         voiceCommandsEnabled = $false
         notificationStyle = if ($Mode -eq 'Minimal') { 'None' } else { 'Windows' }
         saveNotificationSound = ($Mode -ne 'Minimal')
@@ -44,6 +46,7 @@ function New-FirstRunSettings {
         if (-not $configuration -or $configuration -isnot [pscustomobject]) { throw 'Configuration must be a JSON object.' }
         $allowed = @('clipLengthSeconds','qualityPreset','videoFormat','desktopAudioEnabled',
             'microphoneAudioEnabled','organizeClipsByGame','screenshotsEnabled','quickShareEnabled',
+            'quickShareMethod','quickShareAutoUpload',
             'voiceCommandsEnabled','notificationStyle','saveNotificationSound','screenshotNotificationSound',
             'startWithWindows','minimizeToTrayOnClose','hotkey','screenshotFormat','screenshotJpegQuality','clipFolder')
         foreach ($property in $configuration.PSObject.Properties) {
@@ -57,6 +60,7 @@ function New-FirstRunSettings {
     $settings.clipLengthSeconds = $clipLength
     if ($settings.qualityPreset -cnotin @('Standard','High')) { throw 'Choose Standard or High quality.' }
     if ($settings.videoFormat -cnotin @('mp4','mkv')) { throw 'Choose MP4 or MKV.' }
+    if ($settings.quickShareMethod -cnotin @('AnonMP4','CopyFile','WindowsShare','Ask')) { throw 'Choose a supported Quick Share method.' }
     if ($settings.notificationStyle -cnotin @('Windows','ClipDat','None')) { throw 'Choose Windows, ClipDat, or None notifications.' }
     if ($settings.screenshotFormat -cnotin @('png','jpg')) { throw 'Choose PNG or JPEG screenshots.' }
     $jpegQuality = 0
@@ -65,7 +69,7 @@ function New-FirstRunSettings {
     $settings.screenshotJpegQuality = $jpegQuality
     if ($settings.hotkey -notmatch '^Ctrl\+(Alt|Shift)\+F([1-9]|1[0-2])$') { throw 'Choose a supported Ctrl+Alt/Shift+F1-F12 hotkey.' }
     foreach ($key in @('desktopAudioEnabled','microphoneAudioEnabled','organizeClipsByGame','screenshotsEnabled',
-        'quickShareEnabled','voiceCommandsEnabled','saveNotificationSound','screenshotNotificationSound',
+        'quickShareEnabled','quickShareAutoUpload','voiceCommandsEnabled','saveNotificationSound','screenshotNotificationSound',
         'startWithWindows','minimizeToTrayOnClose')) {
         if ($settings[$key] -isnot [bool]) { throw "$key must be true or false." }
     }

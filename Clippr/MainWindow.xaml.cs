@@ -93,7 +93,6 @@ namespace Clippr
         private readonly Dictionary<string, string> _organisationWarnings = new(StringComparer.OrdinalIgnoreCase);
         private bool _gameSamplePending;
         private int _gameSampleGeneration;
-        private int _shareExpirySelection;
         private DateTime _replayMessageUntil;
         private DateTime _infoErrorUntil;
         private string? _infoError;
@@ -1254,52 +1253,43 @@ namespace Clippr
                 return;
             }
 
-            var expiration = new ComboBox { MinWidth = 220 };
-            foreach (var option in new[] { "15 minutes", "1 hour", "6 hours", "24 hours", "Until ClipDat closes" })
-                expiration.Items.Add(option);
-            expiration.SelectedIndex = Math.Clamp(_shareExpirySelection, 0, 4);
-            expiration.SelectionChanged += (_, _) => _shareExpirySelection = Math.Max(0, expiration.SelectedIndex);
-
-            var status = new StackPanel { Spacing = 8 };
-            status.Children.Add(new TextBlock
+            try
             {
-                Text = "Direct sharing unavailable",
-                FontSize = 16,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
-            });
-            status.Children.Add(new TextBlock
-            {
-                Text = "This build can serve clips only from 127.0.0.1 on this PC. It has no verified public HTTPS route, so other people cannot reach a link. No link was created and the sharing server remains stopped.",
-                TextWrapping = TextWrapping.Wrap,
-                MaxWidth = 440
-            });
-            status.Children.Add(new TextBlock
-            {
-                Text = $"Clip: {Path.GetFileName(clipPath)}\nSharing status: Not shared\nExternal reachability: Unavailable (loopback only)",
-                TextWrapping = TextWrapping.Wrap
-            });
-            status.Children.Add(new TextBlock { Text = "Link expiration preference" });
-            status.Children.Add(expiration);
-            status.Children.Add(new TextBlock
-            {
-                Text = "This preference will apply when verified direct sharing is supported.",
-                TextWrapping = TextWrapping.Wrap,
-                FontSize = 12
-            });
-
-            var dialog = new ContentDialog
-            {
-                Title = "Share Clip",
-                Content = status,
-                PrimaryButtonText = "Copy Link",
-                IsPrimaryButtonEnabled = false,
-                SecondaryButtonText = "Stop Sharing",
-                IsSecondaryButtonEnabled = false,
-                CloseButtonText = "Close",
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = ((FrameworkElement)Content).XamlRoot
-            };
-            await dialog.ShowAsync();
+                var method = _settings.QuickShareMethod;
+                if (method == "Ask")
+                {
+                    var picker = new ComboBox { MinWidth = 270 };
+                    picker.Items.Add("Upload to AnonMP4");
+                    picker.Items.Add("Copy video file");
+                    picker.Items.Add("Windows Share");
+                    picker.SelectedIndex = 0;
+                    var choice = new ContentDialog { XamlRoot = ((FrameworkElement)Content).XamlRoot,
+                        Title = "Share clip", Content = picker, PrimaryButtonText = "Continue", CloseButtonText = "Cancel" };
+                    if (await choice.ShowAsync() != ContentDialogResult.Primary) return;
+                    method = picker.SelectedIndex switch { 1 => "CopyFile", 2 => "WindowsShare", _ => "AnonMP4" };
+                }
+                if (method == "CopyFile") WindowsShellFileActions.CopyFileToClipboard(clipPath);
+                else if (method == "WindowsShare") await WindowsShareService.ShowFileAsync(
+                    WinRT.Interop.WindowNative.GetWindowHandle(this), clipPath);
+                else await ShareUploadDialog.ShowAsync(((FrameworkElement)Content).XamlRoot, clipPath,
+                    reuseExisting: _settings.QuickShareKeepHistory,
+                    autoCopy: _settings.QuickShareAutoCopyLink,
+                    openAfter: _settings.QuickShareOpenAfterUpload,
+                    showProgress: _settings.QuickShareShowProgress,
+                    keepHistory: _settings.QuickShareKeepHistory,
+                    onStatus: message => { if (_settings.QuickShareShowNotification)
+                        ShowNotification(ClipNotificationKind.Saved, "Quick Share", message); },
+                    onFailure: async () =>
+                    {
+                        if (_settings.QuickShareFailureAction == "CopyFile")
+                            WindowsShellFileActions.CopyFileToClipboard(clipPath);
+                        else if (_settings.QuickShareFailureAction == "ShareMenu")
+                            await WindowsShareService.ShowFileAsync(
+                                WinRT.Interop.WindowNative.GetWindowHandle(this), clipPath);
+                    });
+            }
+            catch (Exception ex)
+            { ShowInfoError($"Could not share clip: {ex.Message}"); }
         }
 
         private void OnOpenClipsClick(object sender, RoutedEventArgs e)
@@ -1494,6 +1484,8 @@ namespace Clippr
                             _lastReplayPath = completedPath;
                             SetLastSavedFile(completedPath);
                             savedAny = true;
+                            if (_settings.QuickShareEnabled && _settings.QuickShareAutoUpload)
+                                _ = AutoUploadSavedClipAsync(completedPath!);
                         }
                     }
                     catch (IOException) { }
@@ -1567,6 +1559,63 @@ namespace Clippr
             ShowNotification(ClipNotificationKind.Saved, "Clip saved", organisationWarning ?? (shorter
                 ? "Saved the available replay, which was shorter than the requested duration."
                 : "Your clip is ready in the selected clip folder."));
+        }
+
+        private async Task AutoUploadSavedClipAsync(string path)
+        {
+            try
+            {
+                if (_settings.QuickShareShowNotification)
+                    ShowNotification(ClipNotificationKind.Ready, "Uploading your clip...", Path.GetFileName(path));
+                var service = new AnonMp4ShareService();
+                var upload = await service.UploadAsync(path, null, CancellationToken.None);
+                if (_settings.QuickShareKeepHistory)
+                {
+                    try { new ShareHistory().Save(upload); }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    { ShowInfoError("Clip uploaded, but upload history could not be saved."); }
+                }
+                if (_settings.QuickShareAutoCopyLink)
+                {
+                    try
+                    {
+                        var data = new DataPackage();
+                        data.SetText(upload.WatchUrl);
+                        Clipboard.SetContent(data);
+                        Clipboard.Flush();
+                    }
+                    catch (Exception ex) { ShowInfoError("Clip uploaded, but the link could not be copied: " + ex.Message); }
+                }
+                if (_settings.QuickShareShowNotification)
+                    ShowNotification(ClipNotificationKind.Saved, "Clip uploaded successfully!",
+                        "Upload complete — processing video. Playback may not be available yet.");
+                if (_settings.QuickShareOpenAfterUpload)
+                {
+                    try { await Launcher.LaunchUriAsync(new Uri(upload.WatchUrl)); }
+                    catch (Exception) { }
+                }
+                try
+                {
+                    var state = await service.GetStatusAsync(upload.VideoId, CancellationToken.None);
+                    if (_settings.QuickShareKeepHistory) new ShareHistory().Save(upload with { Status = state });
+                }
+                catch (Exception) { /* Upload succeeded; playback readiness remains unconfirmed. */ }
+            }
+            catch (Exception ex)
+            {
+                ShowInfoError($"Couldn't upload your clip: {ex.Message}");
+                if (_settings.QuickShareFailureAction == "CopyFile")
+                {
+                    try { WindowsShellFileActions.CopyFileToClipboard(path); }
+                    catch (Exception) { }
+                }
+                else if (_settings.QuickShareFailureAction == "ShareMenu")
+                {
+                    try { await WindowsShareService.ShowFileAsync(
+                        WinRT.Interop.WindowNative.GetWindowHandle(this), path); }
+                    catch (Exception) { }
+                }
+            }
         }
 
         internal void PreviewNotification(string style)

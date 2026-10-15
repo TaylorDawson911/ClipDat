@@ -2,6 +2,8 @@
 
 Audit date: 2026-10-13
 
+Historical snapshot: its direct-sharing findings describe the 13 October build. Quick Share now uses AnonMP4 uploads; see the current README and sharing tests.
+
 Repository: ClipDat source tree
 
 ## Release decision

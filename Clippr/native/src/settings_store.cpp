@@ -34,7 +34,10 @@ namespace
         L"voiceWakePhrase", L"voiceConfidenceThreshold", L"voiceCooldownSeconds",
         L"voiceCommandPhrases", L"advancedModeEnabled", L"showPreviewDiagnostics",
         L"organizeClipsByGame", L"gameDetectionMethod", L"unknownGameDestination",
-        L"customGameMappings", L"screenshotsEnabled", L"quickShareEnabled"
+        L"customGameMappings", L"screenshotsEnabled", L"quickShareEnabled",
+        L"quickShareMethod", L"quickShareAutoUpload", L"quickShareFailureAction",
+        L"quickShareAutoCopyLink", L"quickShareOpenAfterUpload", L"quickShareShowProgress",
+        L"quickShareShowNotification", L"quickShareKeepHistory"
     };
 
     std::filesystem::path KnownFolderPath(REFKNOWNFOLDERID folder, DWORD flags)

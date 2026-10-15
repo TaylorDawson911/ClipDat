@@ -321,6 +321,9 @@ public sealed partial class LibraryView : UserControl, IDisposable
         TagsBox.IsEnabled = item is not null;
         OpenSelectedButton.IsEnabled = item is not null;
         ShowSelectedButton.IsEnabled = item is not null;
+        ShareSelectedButton.IsEnabled = item is not null && !item.IsImage;
+        ShareSelectedButton.Content = item is not null && !item.IsImage && new ShareHistory().FindCurrent(item.Path) is not null
+            ? "Copy share link / Upload again" : "Upload to AnonMP4";
         FavouriteButton.IsEnabled = item is not null;
         FavouriteButton.Content = item?.Metadata.Favourite == true ? "Remove from favourites" : "Add to favourites";
         if (item is not null)
@@ -370,6 +373,13 @@ public sealed partial class LibraryView : UserControl, IDisposable
     }
 
     private async void OnOpenFileClick(object sender, RoutedEventArgs args) => await RunFileActionAsync(() => WindowsShellFileActions.OpenWithDefaultApplication(RequireSelected().Path));
+    private async void OnShareSelectedClick(object sender, RoutedEventArgs args)
+    {
+        try { await ShareUploadDialog.ShowAsync(Content.XamlRoot, RequireSelected().Path,
+            onStatus: ShowStatus); }
+        catch (Exception ex) { await ShowErrorAsync(ex.Message); }
+        ShowSelection(_selected);
+    }
     private async void OnShowFileClick(object sender, RoutedEventArgs args) => await RunFileActionAsync(() => WindowsShellFileActions.ShowFileInFolder(RequireSelected().Path));
     private async void OnCopyFileClick(object sender, RoutedEventArgs args) => await RunFileActionAsync(() => WindowsShellFileActions.CopyFileToClipboard(RequireSelected().Path));
     private async void OnCopyPathClick(object sender, RoutedEventArgs args) => await RunFileActionAsync(() =>

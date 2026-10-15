@@ -92,8 +92,9 @@
                         <TextBlock Text="Tags (comma separated)" />
                         <TextBox x:Name="TagsBox" PlaceholderText="Add tags..." TextChanged="OnMetadataEdited" />
                         <Button x:Name="FavouriteButton" Content="Add to favourites" HorizontalAlignment="Left" Click="OnFavouriteClick" IsEnabled="False" />
-                        <TextBlock Text="Direct sharing unavailable" FontWeight="SemiBold" />
-                        <TextBlock Text="A public HTTPS link has not been verified. Copy Link stays unavailable; local files are never uploaded." TextWrapping="Wrap" Foreground="#B7C1C9" />
+                        <TextBlock Text="Quick Share" FontWeight="SemiBold" />
+                        <TextBlock Text="Upload selected videos to AnonMP4 only when you choose to share them." TextWrapping="Wrap" Foreground="#B7C1C9" />
+                        <Button x:Name="ShareSelectedButton" Content="Upload to AnonMP4 / Copy link" Click="OnShareSelectedClick" IsEnabled="False" />
                     </StackPanel>
                 </ScrollViewer>
             </Border>

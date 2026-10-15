@@ -580,35 +580,35 @@
                             </Border>
                             <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
                                 <TextBlock Text="Quick Share" FontSize="27" FontWeight="SemiBold" />
-                                <TextBlock Text="Share saved clips directly when a secure public connection is available." Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                <TextBlock Text="Upload saved clips to AnonMP4 and copy a shareable link." Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                             </StackPanel>
                         </Grid>
                         <Border Style="{StaticResource SettingsCardStyle}">
                             <StackPanel Spacing="12">
                                   <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Enable Quick Share controls" VerticalAlignment="Center" /><ToggleSwitch x:Name="QuickShareEnabledCheck" Grid.Column="1" OnContent="" OffContent="" Width="52" MinWidth="0" HorizontalAlignment="Right" VerticalAlignment="Center" AutomationProperties.Name="Enable Quick Share controls" /></Grid>
-                                  <TextBlock Text="Secure tunnel setup required" FontSize="17" FontWeight="SemiBold" />
-                                  <TextBlock Text="Quick Share is unavailable. A public browser link needs a Cloudflare account, a domain, a named tunnel, and a video use agreement that permits locally hosted clips. ClipDat has no configured or verified public endpoint yet." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                  <TextBlock Text="Sharing remains off. No video is uploaded and no router or firewall settings are changed. Cloudflare's standard public Tunnel plans may restrict video delivery." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                  <StackPanel Orientation="Horizontal" Spacing="8">
-                                      <Button Content="Cloudflare setup guide" Click="OnOpenTunnelGuideClick" />
-                                      <Button Content="Video plan requirements" Click="OnOpenTunnelVideoPolicyClick" />
-                                  </StackPanel>
+                                  <TextBlock Text="Sharing method" FontSize="17" FontWeight="SemiBold" />
+                                  <ComboBox x:Name="QuickShareMethodCombo" HorizontalAlignment="Stretch" />
+                                  <TextBlock Text="Uploading sends your video to AnonMP4, an external service. Anyone with the link may be able to view it. Your local clip stays on this PC." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource SettingsCardStyle}">
                             <StackPanel Spacing="12">
-                                <TextBlock Text="Link options" FontSize="17" FontWeight="SemiBold" />
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Link expiration" VerticalAlignment="Center" />
-                                    <ComboBox x:Name="QuickShareExpirationCombo" Grid.Column="1" HorizontalAlignment="Stretch" IsEnabled="False" AutomationProperties.Name="Link expiration unavailable">
-                                        <ComboBoxItem Content="15 minutes" />
-                                        <ComboBoxItem Content="1 hour" />
-                                        <ComboBoxItem Content="6 hours" />
-                                        <ComboBoxItem Content="24 hours" />
-                                        <ComboBoxItem Content="Until ClipDat closes" />
-                                    </ComboBox>
-                                </Grid>
-                                  <TextBlock Text="Link controls will become available only when ClipDat can start and verify a permitted public HTTPS tunnel. No localhost or placeholder links are copied." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="AnonMP4" FontSize="17" FontWeight="SemiBold" />
+                                <TextBlock Text="No account required · maximum video size 20 GB · MP4 and MKV supported" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <ToggleSwitch x:Name="QuickShareAutoCopyCheck" Header="Copy link after upload" OnContent="" OffContent="" />
+                                <ToggleSwitch x:Name="QuickShareOpenAfterCheck" Header="Open video after upload" OnContent="" OffContent="" />
+                                <ToggleSwitch x:Name="QuickShareProgressCheck" Header="Show upload progress" OnContent="" OffContent="" />
+                                <ToggleSwitch x:Name="QuickShareNotificationCheck" Header="Show completion notification" OnContent="" OffContent="" />
+                                <ToggleSwitch x:Name="QuickShareHistoryCheck" Header="Keep upload history" OnContent="" OffContent="" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Automatic sharing" FontSize="17" FontWeight="SemiBold" />
+                                <ToggleSwitch x:Name="QuickShareAutoUploadCheck" Header="Automatically upload clips after saving" OnContent="" OffContent="" />
+                                <TextBlock Text="Off by default. Turning this on sends every saved clip to AnonMP4 without asking again." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="If upload fails" />
+                                <ComboBox x:Name="QuickShareFailureCombo" HorizontalAlignment="Stretch" />
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource SettingsCardStyle}">

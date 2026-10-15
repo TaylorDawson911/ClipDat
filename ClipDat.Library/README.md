@@ -10,7 +10,7 @@ ClipDat Library is an older optional standalone WinUI 3 application with its own
 - Previews selected files using the native media player or image viewer. Double-click opens a file in its default Windows application. File actions support rename, copy file, copy path, and show in folder.
 - Supports multiple selection and moves files to the Windows Recycle Bin only after confirmation. The test used temporary files; user recordings were not deleted.
 - Saves descriptions, tags, and favourites in `%LOCALAPPDATA%\ClipDat Library\library.json`, outside the clips folder. Metadata follows a file moved between game folders when its name, size, and creation time match one missing entry. Uninstall preserves this file and all media unless `-RemoveLibrarySettings` is explicitly passed.
-- Does not start a server, change the router, upload media, or offer a fake public URL. Quick Share in Core reports the verified status.
+- Uses the shared AnonMP4 provider for explicit video uploads and reuses existing share links from local history. Screenshots cannot be uploaded through the video endpoint. It does not start a server or change the router.
 
 ## Build and install
 

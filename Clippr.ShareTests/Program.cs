@@ -2,126 +2,103 @@ using System;
 using System.IO;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Clippr;
 
-var root = Path.Combine(AppContext.BaseDirectory, "test-clips");
-Directory.CreateDirectory(root);
-var clip = Path.Combine(root, "share-test.mp4");
-await File.WriteAllBytesAsync(clip, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-
-await using var server = new LocalClipShareServer();
-var link = server.CreateLink(root, clip, TimeSpan.FromMinutes(1));
-using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-
-using (var full = await client.GetAsync(link.Url))
+if (args.Length == 2 && args[0] == "--live")
 {
-    Require(full.StatusCode == HttpStatusCode.OK, "full response status");
-    Require((await full.Content.ReadAsByteArrayAsync()).Length == 10, "full response length");
+    var provider = new AnonMp4ShareService();
+    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+    var uploaded = await provider.UploadAsync(args[1], null, timeout.Token);
+    Console.WriteLine($"Live upload accepted: {uploaded.VideoId}, {uploaded.WatchUrl}");
+    Console.WriteLine("Processing status: " + await provider.GetStatusAsync(uploaded.VideoId, timeout.Token));
+    return;
 }
 
-using (var request = new HttpRequestMessage(HttpMethod.Get, link.Url))
+var folder = Path.Combine(Path.GetTempPath(), "ClipDat-share-tests-" + Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(folder);
+try
 {
-    request.Headers.Range = new RangeHeaderValue(3, 5);
-    using var partial = await client.SendAsync(request);
-    Require(partial.StatusCode == HttpStatusCode.PartialContent, "range response status");
-    Require((await partial.Content.ReadAsByteArrayAsync()).AsSpan().SequenceEqual(new byte[] { 3, 4, 5 }), "range response bytes");
+    var video = Path.Combine(folder, "sample.mp4");
+    await File.WriteAllBytesAsync(video, [0, 0, 0, 24, 102, 116, 121, 112, 105, 115, 111, 109, 0, 0, 0, 0]);
+    var handler = new StubHandler(async request =>
+    {
+        Require(request.Method == HttpMethod.Post && request.RequestUri?.AbsoluteUri == "https://anonmp4api.xyz/upload", "upload endpoint");
+        Require(request.Content?.Headers.ContentType?.MediaType == "multipart/form-data", "multipart content");
+        var body = await request.Content!.ReadAsByteArrayAsync();
+        Require(Encoding.UTF8.GetString(body).Contains("name=file", StringComparison.Ordinal) ||
+                Encoding.UTF8.GetString(body).Contains("name=\"file\"", StringComparison.Ordinal), "file field");
+        return Json("""{"success":true,"video_id":"abc123","watch_url":"https://anonmp4.to/v/abc123","message":"File received and queued for processing"}""");
+    });
+    using var client = new HttpClient(handler);
+    var service = new AnonMp4ShareService(client);
+    var result = await service.UploadAsync(video, null, CancellationToken.None);
+    Require(result.VideoId == "abc123" && result.Status == "processing", "validated upload result");
+    Require(result.WatchUrl == "https://anonmp4.to/v/abc123", "server URL used");
+    var mkv = Path.Combine(folder, "sample.mkv");
+    await File.WriteAllBytesAsync(mkv, [0x1A, 0x45, 0xDF, 0xA3, 0, 0, 0, 0, 0, 0, 0, 0]);
+    Require((await service.UploadAsync(mkv, null, CancellationToken.None)).VideoId == "abc123", "MKV upload");
+    var larger = Path.Combine(folder, "larger.mp4");
+    var largerBytes = new byte[2 * 1024 * 1024];
+    new byte[] { 0, 0, 0, 24, 102, 116, 121, 112, 105, 115, 111, 109 }.CopyTo(largerBytes, 0);
+    await File.WriteAllBytesAsync(larger, largerBytes);
+    long lastSent = 0;
+    var progress = new DirectProgress(value => lastSent = value.Sent);
+    await service.UploadAsync(larger, progress, CancellationToken.None);
+    Require(lastSent == largerBytes.Length, "real streamed progress");
+    handler.Handle = _ => Task.FromResult(Json("""{"success":true,"video_id":"abc123","watch_url":"https://anonmp4.art/v/abc123"}"""));
+    Require((await service.UploadAsync(video, null, CancellationToken.None)).WatchUrl ==
+        "https://anonmp4.art/v/abc123", "observed AnonMP4 watch domain");
+    var history = new ShareHistory(Path.Combine(folder, "share-history.json"));
+    history.Save(result);
+    Require(history.FindCurrent(video)?.VideoId == "abc123", "history reuse");
+    history.Save(result with { WatchUrl = "https://evil.example/v/abc123" });
+    Require(history.FindCurrent(video)?.WatchUrl == result.WatchUrl, "reject tampered history URL");
+    await File.AppendAllTextAsync(video, "changed");
+    Require(history.FindCurrent(video) is null, "changed file must not reuse URL");
+    handler.Handle = _ => Task.FromResult(Json("""{"success":true,"video_id":"abc123","watch_url":"https://evil.example/v/abc123"}"""));
+    await Expect<InvalidDataException>(() => service.UploadAsync(video, null, CancellationToken.None), "reject foreign URL");
+    handler.Handle = _ => Task.FromResult(Json("""{"success":true,"watch_url":"https://anonmp4.to/v/abc123"}"""));
+    await Expect<InvalidDataException>(() => service.UploadAsync(video, null, CancellationToken.None), "reject missing ID");
+    handler.Handle = _ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.TooManyRequests));
+    await Expect<HttpRequestException>(() => service.UploadAsync(video, null, CancellationToken.None), "rate limit error");
+    handler.Handle = _ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+    await Expect<HttpRequestException>(() => service.UploadAsync(video, null, CancellationToken.None), "server error");
+    handler.Handle = _ => Task.FromResult(Json("not-json"));
+    await Expect<System.Text.Json.JsonException>(() => service.UploadAsync(video, null, CancellationToken.None), "invalid JSON");
+    var image = Path.Combine(folder, "image.png");
+    await File.WriteAllBytesAsync(image, [1]);
+    await Expect<InvalidOperationException>(() => service.UploadAsync(image, null, CancellationToken.None), "reject screenshots");
+    var invalidVideo = Path.Combine(folder, "invalid.mp4");
+    await File.WriteAllBytesAsync(invalidVideo, new byte[32]);
+    await Expect<InvalidDataException>(() => service.UploadAsync(invalidVideo, null, CancellationToken.None), "reject invalid video");
+    using var cancelled = new CancellationTokenSource();
+    cancelled.Cancel();
+    await Expect<OperationCanceledException>(() => service.UploadAsync(video, null, cancelled.Token), "cancellation");
+    handler.Handle = _ => Task.FromResult(Json("""{"success":true,"status":"active"}"""));
+    Require(await service.GetStatusAsync("abc123", CancellationToken.None) == "ready", "info status");
+    Console.WriteLine("AnonMP4 mocked upload checks passed.");
 }
+finally { Directory.Delete(folder, true); }
 
-using (var request = new HttpRequestMessage(HttpMethod.Head, link.Url))
+static HttpResponseMessage Json(string value) => new(HttpStatusCode.OK)
+    { Content = new StringContent(value, Encoding.UTF8, "application/json") };
+static void Require(bool valid, string name) { if (!valid) throw new Exception("Failed: " + name); }
+static async Task Expect<T>(Func<Task> action, string name) where T : Exception
 {
-    using var head = await client.SendAsync(request);
-    Require(head.StatusCode == HttpStatusCode.OK && head.Content.Headers.ContentLength == 10, "HEAD response");
-}
-
-using (var request = new HttpRequestMessage(HttpMethod.Get, link.Url))
-{
-    request.Headers.Range = new RangeHeaderValue(null, 3);
-    using var suffix = await client.SendAsync(request);
-    Require(suffix.StatusCode == HttpStatusCode.PartialContent, "suffix range status");
-    Require((await suffix.Content.ReadAsByteArrayAsync()).AsSpan().SequenceEqual(new byte[] { 7, 8, 9 }), "suffix range bytes");
-}
-
-using (var request = new HttpRequestMessage(HttpMethod.Get, link.Url))
-{
-    request.Headers.Range = new RangeHeaderValue(2, 4);
-    request.Headers.TryAddWithoutValidation("If-Range", "\"stale-etag\"");
-    using var stale = await client.SendAsync(request);
-    Require(stale.StatusCode == HttpStatusCode.OK && (await stale.Content.ReadAsByteArrayAsync()).Length == 10,
-        "stale If-Range returns full response");
-}
-
-using (var probe = await client.GetAsync(link.Url))
-using (var request = new HttpRequestMessage(HttpMethod.Get, link.Url))
-{
-    request.Headers.Range = new RangeHeaderValue(2, 4);
-    request.Headers.TryAddWithoutValidation("If-Range", probe.Headers.ETag!.ToString());
-    using var matching = await client.SendAsync(request);
-    Require(matching.StatusCode == HttpStatusCode.PartialContent, "matching If-Range ETag returns partial response");
-}
-
-using (var request = new HttpRequestMessage(HttpMethod.Get, link.Url))
-{
-    request.Headers.Host = "unexpected.example";
-    using var wrongHost = await client.SendAsync(request);
-    Require(wrongHost.StatusCode == HttpStatusCode.MisdirectedRequest, "unapproved Host rejection");
-}
-
-using (var request = new HttpRequestMessage(HttpMethod.Get, link.Url))
-{
-    request.Headers.Range = new RangeHeaderValue(50, 60);
-    using var invalidRange = await client.SendAsync(request);
-    Require(invalidRange.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable, "unsatisfiable range status");
-}
-
-Require(server.Revoke(link.Token), "token revocation");
-using (var revoked = await client.GetAsync(link.Url)) Require(revoked.StatusCode == HttpStatusCode.NotFound, "revoked token rejection");
-
-var outside = Path.Combine(AppContext.BaseDirectory, "outside.mp4");
-await File.WriteAllBytesAsync(outside, [1]);
-RequireThrows<UnauthorizedAccessException>(() => server.CreateLink(root, outside, TimeSpan.FromMinutes(1)), "outside-folder rejection");
-RequireThrows<ArgumentException>(() => server.CreateLink(root, Path.Combine(root, "image.png"), TimeSpan.FromMinutes(1)), "non-video rejection");
-
-var expiring = server.CreateLink(root, clip, TimeSpan.FromMilliseconds(1));
-await Task.Delay(50);
-using (var expired = await client.GetAsync(expiring.Url)) Require(expired.StatusCode == HttpStatusCode.NotFound, "expired token rejection");
-
-var first = server.CreateLink(root, clip, TimeSpan.FromMinutes(1));
-var second = server.CreateLink(root, clip, TimeSpan.FromMinutes(1));
-var third = server.CreateLink(root, clip, TimeSpan.FromMinutes(1));
-RequireThrows<InvalidOperationException>(() => server.CreateLink(root, clip, TimeSpan.FromMinutes(1)), "three-share limit");
-Require(server.Revoke(first.Token), "independent first share revocation");
-using (var stillShared = await client.GetAsync(second.Url)) Require(stillShared.StatusCode == HttpStatusCode.OK, "other share remains active");
-Require(server.Revoke(second.Token) && server.Revoke(third.Token), "remaining shares revoke");
-
-var gameFolder = Path.Combine(root, "Deadlock");
-Directory.CreateDirectory(gameFolder);
-var nestedClip = Path.Combine(gameFolder, "match.mp4");
-await File.WriteAllBytesAsync(nestedClip, [10, 11, 12]);
-var nestedLink = server.CreateLink(root, nestedClip, TimeSpan.FromMinutes(1));
-using (var nestedResponse = await client.GetAsync(nestedLink.Url))
-    Require(nestedResponse.StatusCode == HttpStatusCode.OK &&
-        (await nestedResponse.Content.ReadAsByteArrayAsync()).AsSpan().SequenceEqual(new byte[] { 10, 11, 12 }),
-        "game subfolder clip is allowed");
-Require(server.Revoke(nestedLink.Token), "nested clip revocation");
-
-var replaceLink = server.CreateLink(root, nestedClip, TimeSpan.FromMinutes(1));
-File.Move(nestedClip, Path.Combine(gameFolder, "moved.mp4"), true);
-await File.WriteAllBytesAsync(nestedClip, [90, 91, 92]);
-using (var replaced = await client.GetAsync(replaceLink.Url))
-    Require(replaced.StatusCode == HttpStatusCode.NotFound, "replacement at old path is not shared");
-
-Console.WriteLine("Local share server smoke checks passed.");
-
-static void Require(bool condition, string description)
-{
-    if (!condition) throw new Exception($"Failed: {description}");
-}
-
-static void RequireThrows<T>(Action action, string description) where T : Exception
-{
-    try { action(); }
+    try { await action(); }
     catch (T) { return; }
-    throw new Exception($"Failed: {description}");
+    throw new Exception("Failed: " + name);
+}
+sealed class StubHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> handler) : HttpMessageHandler
+{
+    public Func<HttpRequestMessage, Task<HttpResponseMessage>> Handle { get; set; } = handler;
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        => Handle(request);
+}
+sealed class DirectProgress(Action<(long Sent, long Total)> report) : IProgress<(long Sent, long Total)>
+{
+    public void Report((long Sent, long Total) value) => report(value);
 }

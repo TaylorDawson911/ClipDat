@@ -1,6 +1,6 @@
 # ClipDat
 
-ClipDat includes a Clip Library page in the main window for saved clips and screenshots. The older [standalone ClipDat Library](ClipDat.Library/README.md) remains available as a separate optional application, but the main app no longer launches it. ClipDat's **Quick Share** settings page explains the current direct-sharing status; no public link is offered without a verified secure endpoint.
+ClipDat includes a Clip Library page in the main window for saved clips and screenshots. The older [standalone ClipDat Library](ClipDat.Library/README.md) remains available as a separate optional application. Quick Share uploads a selected video to AnonMP4 only after an explicit action, unless automatic uploads are enabled in Settings.
 
 **Downloads and setup:** release builds are published, once signing and installation checks are complete, on [GitHub Releases](https://github.com/TaylorDawson911/ClipDat/releases/latest). See the [installer guide](installer/README.md) for first-run modes, signing requirements, and package validation. Source builds alone are not an installed release.
 
@@ -99,7 +99,7 @@ The C# to native interface is declared in `Clippr\NativeCapture.cs` and `Clippr\
 
 Capture, audio processing, replay buffering, and export are local. Voice recognition remains off until the user enables it in Settings > Voice; it uses Windows' on-device list grammar and does not store audio. Microphone access can be denied by Windows privacy settings.
 
-Public direct clip sharing is **not available**. The optional local HTTP component can serve only explicitly selected files over loopback for local use; it does not provide a public URL, router mapping, cloud upload, or relay. The user interface must not describe loopback access as an externally reachable share link.
+Quick Share uses the [AnonMP4 upload API](https://anonmp4.to/api-docs). Uploading transfers the selected video to a third party; people with the returned link may be able to watch it. ClipDat keeps the local recording and stores upload history on this PC. No tunnel, router change, or local hosting service is required. Automatic uploading is disabled by default.
 
 ## Testing and known limitations
 

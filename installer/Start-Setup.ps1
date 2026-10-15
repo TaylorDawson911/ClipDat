@@ -147,7 +147,7 @@ New-Text $features 'Core clipping and recording always stay installed.' 8 41 650
 $library = New-Check $features 'Install optional Clip Library companion' 15 84 $false 640
 $voice = New-Check $features 'Enable voice commands (requires offline Windows speech)' 15 119 $false 640
 $screenshots = New-Check $features 'Enable screenshots' 15 154 $true 640
-$quickShare = New-Check $features 'Show Quick Share controls (public links unavailable)' 15 189 $true 640
+$quickShare = New-Check $features 'Show Quick Share controls (AnonMP4 uploads require action)' 15 189 $true 640
 $desktop = New-Check $features 'Create desktop shortcut' 15 224 $false 640
 $startup = New-Check $features 'Start ClipDat when I sign in' 15 259 $false 640
 New-Text $features 'The in-app Clip Library is part of ClipDat; the separate companion is optional.' 15 318 650 42 9 $true | Out-Null

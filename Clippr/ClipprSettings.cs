@@ -57,6 +57,14 @@ public sealed class ClipprSettings
     public string ScreenshotHotkey { get; set; } = "Ctrl+Alt+F10";
     public bool ScreenshotsEnabled { get; set; } = true;
     public bool QuickShareEnabled { get; set; } = true;
+    public string QuickShareMethod { get; set; } = "AnonMP4";
+    public bool QuickShareAutoUpload { get; set; }
+    public string QuickShareFailureAction { get; set; } = "CopyFile";
+    public bool QuickShareAutoCopyLink { get; set; } = true;
+    public bool QuickShareOpenAfterUpload { get; set; }
+    public bool QuickShareShowProgress { get; set; } = true;
+    public bool QuickShareShowNotification { get; set; } = true;
+    public bool QuickShareKeepHistory { get; set; } = true;
     public string ScreenshotFormat { get; set; } = "png";
     public int ScreenshotJpegQuality { get; set; } = 90;
     public bool CopyScreenshotToClipboard { get; set; }
@@ -148,6 +156,8 @@ public sealed class ClipprSettings
 
     public string? ValidateAndNormalize()
     {
+        if (QuickShareMethod is not ("AnonMP4" or "CopyFile" or "WindowsShare" or "Ask")) QuickShareMethod = "AnonMP4";
+        if (QuickShareFailureAction is not ("CopyFile" or "ShareMenu" or "Error")) QuickShareFailureAction = "CopyFile";
         if (CaptureMode is not ("Screen" or "Application")) CaptureMode = "Screen";
         if (Resolution is not ("Source" or "1920x1080")) Resolution = "Source";
         if (FrameRate is not (30 or 60)) FrameRate = 30;
@@ -213,6 +223,8 @@ public sealed class ClipprSettings
 
     public string? Validate()
     {
+        if (QuickShareMethod is not ("AnonMP4" or "CopyFile" or "WindowsShare" or "Ask")) return "Choose a Quick Share method.";
+        if (QuickShareFailureAction is not ("CopyFile" or "ShareMenu" or "Error")) return "Choose a Quick Share fallback.";
         if (CaptureMode is not ("Screen" or "Application")) return "Choose Screen or Application capture.";
         if (Resolution is not ("Source" or "1920x1080")) return "Choose a supported recording resolution.";
         if (FrameRate is not (30 or 60)) return "Frame rate must be 30 or 60 FPS.";

@@ -1,10 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\Clippr\LocalClipShareServer.cs" Link="LocalClipShareServer.cs" />
+    <Compile Include="..\Clippr\AnonMp4ShareService.cs" Link="AnonMp4ShareService.cs" />
+    <Compile Include="..\Clippr\ShareHistory.cs" Link="ShareHistory.cs" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
   </ItemGroup>
 </Project>

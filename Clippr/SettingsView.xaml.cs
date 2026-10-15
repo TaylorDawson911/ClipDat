@@ -62,7 +62,6 @@ public sealed partial class SettingsView : UserControl
             SettingsStatus.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(ColorHelper.FromArgb(255, 237, 190, 120));
         }
         SettingsNavigation.SelectedItem = SettingsNavigation.MenuItems.OfType<NavigationViewItem>().FirstOrDefault();
-        QuickShareExpirationCombo.SelectedIndex = 1;
         CapturePage.SizeChanged += (_, _) => UpdateCaptureSourceLayout();
         AudioPage.SizeChanged += (_, _) => UpdateAudioLayout();
         foreach (var meter in new[] { DesktopPreviewMeter, PreviewDesktopMeter, PreviewMicrophoneMeter, PreviewGameMeter, PreviewChatMeter })
@@ -140,6 +139,10 @@ public sealed partial class SettingsView : UserControl
         AddOptions(ScreenshotHotkeyCombo, ("Ctrl+Alt+F10", "Ctrl + Alt + F10"),
             ("Ctrl+Alt+F9", "Ctrl + Alt + F9"), ("Ctrl+Shift+F8", "Ctrl + Shift + F8"));
         AddOptions(VoiceConfidenceCombo, ("Medium", "Medium or higher"), ("High", "High only"));
+        AddOptions(QuickShareMethodCombo, ("AnonMP4", "AnonMP4 · upload and copy link"),
+            ("CopyFile", "Copy video file to clipboard"), ("WindowsShare", "Windows Share"), ("Ask", "Ask every time"));
+        AddOptions(QuickShareFailureCombo, ("CopyFile", "Copy video file to clipboard"),
+            ("ShareMenu", "Open share menu"), ("Error", "Show error only"));
 
         SelectTag(CaptureModeCombo, _draft.CaptureMode);
         SelectTag(ResolutionCombo, _draft.Resolution);
@@ -162,6 +165,14 @@ public sealed partial class SettingsView : UserControl
         SelectTag(ScreenshotFormatCombo, _draft.ScreenshotFormat);
         ScreenshotsEnabledCheck.IsOn = _draft.ScreenshotsEnabled;
         QuickShareEnabledCheck.IsOn = _draft.QuickShareEnabled;
+        SelectTag(QuickShareMethodCombo, _draft.QuickShareMethod);
+        SelectTag(QuickShareFailureCombo, _draft.QuickShareFailureAction);
+        QuickShareAutoUploadCheck.IsOn = _draft.QuickShareAutoUpload;
+        QuickShareAutoCopyCheck.IsOn = _draft.QuickShareAutoCopyLink;
+        QuickShareOpenAfterCheck.IsOn = _draft.QuickShareOpenAfterUpload;
+        QuickShareProgressCheck.IsOn = _draft.QuickShareShowProgress;
+        QuickShareNotificationCheck.IsOn = _draft.QuickShareShowNotification;
+        QuickShareHistoryCheck.IsOn = _draft.QuickShareKeepHistory;
         SelectTag(ScreenshotHotkeyCombo, _draft.ScreenshotHotkey);
         SelectTag(VoiceConfidenceCombo, _draft.VoiceConfidenceThreshold);
         VoiceCommandsCheck.IsOn = _draft.VoiceCommandsEnabled;
@@ -218,6 +229,11 @@ public sealed partial class SettingsView : UserControl
         OrganiseClipsCheck.Toggled += OnSettingChanged;
         ScreenshotsEnabledCheck.Toggled += OnSettingChanged;
         QuickShareEnabledCheck.Toggled += OnSettingChanged;
+        QuickShareMethodCombo.SelectionChanged += OnSettingChanged;
+        QuickShareFailureCombo.SelectionChanged += OnSettingChanged;
+        foreach (var toggle in new[] { QuickShareAutoUploadCheck, QuickShareAutoCopyCheck,
+                     QuickShareOpenAfterCheck, QuickShareProgressCheck, QuickShareNotificationCheck,
+                     QuickShareHistoryCheck }) toggle.Toggled += OnSettingChanged;
         ScreenshotFormatCombo.SelectionChanged += OnSettingChanged;
         ScreenshotHotkeyCombo.SelectionChanged += OnSettingChanged;
         VoiceConfidenceCombo.SelectionChanged += OnSettingChanged;
@@ -743,6 +759,14 @@ public sealed partial class SettingsView : UserControl
         _draft.ScreenshotFormat = GetTag(ScreenshotFormatCombo);
         _draft.ScreenshotsEnabled = ScreenshotsEnabledCheck.IsOn;
         _draft.QuickShareEnabled = QuickShareEnabledCheck.IsOn;
+        _draft.QuickShareMethod = GetTag(QuickShareMethodCombo);
+        _draft.QuickShareFailureAction = GetTag(QuickShareFailureCombo);
+        _draft.QuickShareAutoUpload = QuickShareAutoUploadCheck.IsOn;
+        _draft.QuickShareAutoCopyLink = QuickShareAutoCopyCheck.IsOn;
+        _draft.QuickShareOpenAfterUpload = QuickShareOpenAfterCheck.IsOn;
+        _draft.QuickShareShowProgress = QuickShareProgressCheck.IsOn;
+        _draft.QuickShareShowNotification = QuickShareNotificationCheck.IsOn;
+        _draft.QuickShareKeepHistory = QuickShareHistoryCheck.IsOn;
         _draft.ScreenshotJpegQuality = double.IsFinite(ScreenshotJpegQualityBox.Value)
             ? (int)Math.Round(ScreenshotJpegQualityBox.Value) : 90;
         _draft.CopyScreenshotToClipboard = CopyScreenshotCheck.IsOn;
@@ -1223,15 +1247,4 @@ public sealed partial class SettingsView : UserControl
         catch (Exception ex) { FeedbackMessage.Text = $"Could not open feedback page: {ex.Message}"; }
     }
 
-    private async void OnOpenTunnelGuideClick(object sender, RoutedEventArgs e)
-    {
-        try { await Launcher.LaunchUriAsync(new Uri("https://developers.cloudflare.com/tunnel/get-started/")); }
-        catch { /* Setup guidance remains visible if the browser cannot open. */ }
-    }
-
-    private async void OnOpenTunnelVideoPolicyClick(object sender, RoutedEventArgs e)
-    {
-        try { await Launcher.LaunchUriAsync(new Uri("https://developers.cloudflare.com/cloudflare-one/faq/cloudflare-tunnels-faq/#large-file-and-streaming-traffic-through-tunnel")); }
-        catch { /* Setup guidance remains visible if the browser cannot open. */ }
-    }
 }
