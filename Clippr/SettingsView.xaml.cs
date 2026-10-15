@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -38,6 +39,8 @@ public sealed partial class SettingsView : UserControl
     private readonly Dictionary<string, Border> _voiceCommandRows = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Border> _voiceCommandGroups = new(StringComparer.Ordinal);
     private string _voiceCommandCategory = "All";
+    private readonly ObservableCollection<GameMappingRow> _gameMappingRows = [];
+    private sealed record GameMappingRow(string Executable, string Label);
 
     public SettingsView(MainWindow mainWindow, ClipprSettings settings)
     {
@@ -45,6 +48,7 @@ public sealed partial class SettingsView : UserControl
         _mainWindow = mainWindow;
         _draft = settings.Clone();
         _savedSnapshot = settings.Clone();
+        GameMappingList.ItemsSource = _gameMappingRows;
         SettingsNavigation.RequestedTheme = ElementTheme.Dark;
         PopulateControls();
         WireEvents();
@@ -122,6 +126,10 @@ public sealed partial class SettingsView : UserControl
         AddOptions(VideoFormatCombo, ("mp4", "MP4"), ("mkv", "Matroska (MKV)"));
         AddOptions(FilenameFormatCombo, ("ClipDat", "ClipDat - YYYY-MM-DD HH-mm-ss"),
             ("Timestamp", "YYYY-MM-DD HH-mm-ss"), ("Application", "Application - YYYY-MM-DD HH-mm-ss"));
+        AddOptions(GameDetectionCombo, ("Automatic", "Automatic (recommended)"),
+            ("CapturedApplication", "Captured application"), ("ForegroundApplication", "Foreground application"));
+        AddOptions(UnknownGameCombo, ("Other", "Save to Clips/Other"),
+            ("Root", "Save directly to Clips"), ("CapturedApplication", "Use captured application name"));
         AddOptions(NotificationStyleCombo, ("Windows", "Windows notifications"),
             ("ClipDat", "ClipDat slide-in cards"));
         AddOptions(HotkeyCombo, ("Ctrl+Shift+F10", "Ctrl + Shift + F10"),
@@ -143,6 +151,11 @@ public sealed partial class SettingsView : UserControl
         SelectTag(QualityCombo, _draft.QualityPreset);
         SelectTag(VideoFormatCombo, _draft.VideoFormat);
         SelectTag(FilenameFormatCombo, _draft.FilenameFormat);
+        SelectTag(GameDetectionCombo, _draft.GameDetectionMethod);
+        SelectTag(UnknownGameCombo, _draft.UnknownGameDestination);
+        OrganiseClipsCheck.IsOn = _draft.OrganizeClipsByGame;
+        RefreshGameMappingRows();
+        RefreshGameFolderPreview();
         UpdateFilenameExample();
         SelectTag(NotificationStyleCombo, _draft.NotificationStyle);
         SelectTag(HotkeyCombo, _draft.Hotkey);
@@ -198,6 +211,9 @@ public sealed partial class SettingsView : UserControl
                      ReplayMemoryCombo, QualityCombo, VideoFormatCombo, FilenameFormatCombo, NotificationStyleCombo, HotkeyCombo })
             combo.SelectionChanged += OnSettingChanged;
         MinimumFreeSpaceCombo.SelectionChanged += OnSettingChanged;
+        GameDetectionCombo.SelectionChanged += OnSettingChanged;
+        UnknownGameCombo.SelectionChanged += OnSettingChanged;
+        OrganiseClipsCheck.Toggled += OnSettingChanged;
         ScreenshotFormatCombo.SelectionChanged += OnSettingChanged;
         ScreenshotHotkeyCombo.SelectionChanged += OnSettingChanged;
         VoiceConfidenceCombo.SelectionChanged += OnSettingChanged;
@@ -218,6 +234,7 @@ public sealed partial class SettingsView : UserControl
         NotificationSoundCheck.Toggled += OnSettingChanged;
         CustomLengthBox.ValueChanged += OnCustomLengthChanged;
         ClipFolderBox.LostFocus += OnClipFolderLostFocus;
+        ClipFolderBox.TextChanged += (_, _) => { if (_ready) UpdateDraftAndDirtyState(); };
         OutputPage.SizeChanged += (_, _) => UpdateOutputLayout();
     }
 
@@ -713,6 +730,9 @@ public sealed partial class SettingsView : UserControl
         _draft.VideoFormat = GetTag(VideoFormatCombo);
         _draft.FilenameFormat = GetTag(FilenameFormatCombo);
         _draft.ClipFolder = ClipFolderBox.Text;
+        _draft.OrganizeClipsByGame = OrganiseClipsCheck.IsOn;
+        _draft.GameDetectionMethod = GetTag(GameDetectionCombo);
+        _draft.UnknownGameDestination = GetTag(UnknownGameCombo);
         _draft.SaveNotificationSound = NotificationSoundCheck.IsOn;
         _draft.NotificationStyle = GetTag(NotificationStyleCombo);
         _draft.Hotkey = GetTag(HotkeyCombo);
@@ -728,6 +748,114 @@ public sealed partial class SettingsView : UserControl
         SaveSettingsButton.IsEnabled = dirty;
         SettingsStatus.Text = dirty ? "Unsaved changes · press Save changes to apply." : "Settings loaded · no changes to save.";
         SettingsStatus.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(ColorHelper.FromArgb(255, 174, 182, 188));
+        RefreshGameFolderPreview();
+    }
+
+    internal void RefreshGameFolderPreview()
+    {
+        if (GameFolderPreviewText is null) return;
+        try
+        {
+            var (folder, confirmed) = _mainWindow.GetNextClipFolderPreview(_draft);
+            GameFolderPreviewText.Text = folder;
+            GameFolderPreviewStatus.Text = !_draft.OrganizeClipsByGame
+                ? "Organisation is off. Clips save directly to the configured folder."
+                : confirmed ? "Based on the dominant confirmed game in the current replay interval."
+                : "No game has been confirmed for the current replay interval; this is the fallback destination.";
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            GameFolderPreviewText.Text = "Choose a valid clips folder";
+            GameFolderPreviewStatus.Text = "The destination will update when the folder is valid.";
+        }
+    }
+
+    private void RefreshGameMappingRows()
+    {
+        _gameMappingRows.Clear();
+        foreach (var pair in _draft.CustomGameMappings.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
+            _gameMappingRows.Add(new GameMappingRow(pair.Key,
+                $"{pair.Key}  →  {pair.Value.DisplayName}  ·  {pair.Value.FolderName}"));
+    }
+
+    private async Task<(string Executable, string DisplayName, string FolderName)?> EditGameMappingAsync(
+        string title, string executable = "", string displayName = "", string folderName = "")
+    {
+        var executableBox = new TextBox { Text = executable, PlaceholderText = "game.exe" };
+        var displayBox = new TextBox { Text = displayName, PlaceholderText = "Game title" };
+        var folderBox = new TextBox { Text = folderName, PlaceholderText = "Folder name" };
+        var error = new TextBlock { Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 237, 142, 143)), TextWrapping = TextWrapping.Wrap };
+        var content = new StackPanel { Spacing = 8 };
+        content.Children.Add(new TextBlock { Text = "Executable name" });
+        content.Children.Add(executableBox);
+        content.Children.Add(new TextBlock { Text = "Display name" });
+        content.Children.Add(displayBox);
+        content.Children.Add(new TextBlock { Text = "Folder name" });
+        content.Children.Add(folderBox);
+        content.Children.Add(error);
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot, Title = title, Content = content,
+            PrimaryButtonText = "Save mapping", CloseButtonText = "Cancel"
+        };
+        dialog.PrimaryButtonClick += (_, args) =>
+        {
+            var key = GameOrganisation.NormalizeExecutable(executableBox.Text);
+            var folder = GameOrganisation.SafeFolderName(folderBox.Text);
+            if (key is null || folder is null || string.IsNullOrWhiteSpace(displayBox.Text) || displayBox.Text.Trim().Length > 80)
+            {
+                error.Text = "Enter an executable name, a display name up to 80 characters, and a safe Windows folder name.";
+                args.Cancel = true;
+            }
+            else if (!string.Equals(key, executable, StringComparison.OrdinalIgnoreCase) &&
+                     _draft.CustomGameMappings.ContainsKey(key))
+            {
+                error.Text = "A custom mapping already exists for this executable.";
+                args.Cancel = true;
+            }
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return null;
+        return (GameOrganisation.NormalizeExecutable(executableBox.Text)!, displayBox.Text.Trim(),
+            GameOrganisation.SafeFolderName(folderBox.Text)!);
+    }
+
+    private async void OnAddGameMappingClick(object sender, RoutedEventArgs e)
+    {
+        var mapping = await EditGameMappingAsync("Add game mapping");
+        if (mapping is null) return;
+        _draft.CustomGameMappings[mapping.Value.Executable] = new GameMapping
+        { DisplayName = mapping.Value.DisplayName, FolderName = mapping.Value.FolderName };
+        RefreshGameMappingRows();
+        UpdateDraftAndDirtyState();
+    }
+
+    private async void OnEditGameMappingClick(object sender, RoutedEventArgs e)
+    {
+        if (GameMappingList.SelectedItem is not GameMappingRow selected ||
+            !_draft.CustomGameMappings.TryGetValue(selected.Executable, out var existing)) return;
+        var mapping = await EditGameMappingAsync("Edit game mapping", selected.Executable,
+            existing.DisplayName, existing.FolderName);
+        if (mapping is null) return;
+        _draft.CustomGameMappings.Remove(selected.Executable);
+        _draft.CustomGameMappings[mapping.Value.Executable] = new GameMapping
+        { DisplayName = mapping.Value.DisplayName, FolderName = mapping.Value.FolderName };
+        RefreshGameMappingRows();
+        UpdateDraftAndDirtyState();
+    }
+
+    private void OnRemoveGameMappingClick(object sender, RoutedEventArgs e)
+    {
+        if (GameMappingList.SelectedItem is not GameMappingRow selected) return;
+        _draft.CustomGameMappings.Remove(selected.Executable);
+        RefreshGameMappingRows();
+        UpdateDraftAndDirtyState();
+    }
+
+    private void OnResetGameMappingsClick(object sender, RoutedEventArgs e)
+    {
+        _draft.CustomGameMappings.Clear();
+        RefreshGameMappingRows();
+        UpdateDraftAndDirtyState();
     }
 
     internal void RefreshReliabilityDiagnostics(string health, string status, bool healthy)
@@ -950,7 +1078,7 @@ public sealed partial class SettingsView : UserControl
         var count = 0;
         foreach (var property in typeof(ClipprSettings).GetProperties(BindingFlags.Instance | BindingFlags.Public))
         {
-            if (property.Name == nameof(ClipprSettings.VoiceCommandPhrases)) continue;
+            if (property.Name is nameof(ClipprSettings.VoiceCommandPhrases) or nameof(ClipprSettings.CustomGameMappings)) continue;
             if (!Equals(property.GetValue(_draft), property.GetValue(_savedSnapshot))) count++;
         }
         var phraseKeys = _draft.VoiceCommandPhrases.Keys.Union(_savedSnapshot.VoiceCommandPhrases.Keys, StringComparer.Ordinal);
@@ -959,6 +1087,14 @@ public sealed partial class SettingsView : UserControl
             _draft.VoiceCommandPhrases.TryGetValue(key, out var current);
             _savedSnapshot.VoiceCommandPhrases.TryGetValue(key, out var saved);
             if (!string.Equals(current, saved, StringComparison.Ordinal)) count++;
+        }
+        var gameKeys = _draft.CustomGameMappings.Keys.Union(_savedSnapshot.CustomGameMappings.Keys,
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var key in gameKeys)
+        {
+            _draft.CustomGameMappings.TryGetValue(key, out var current);
+            _savedSnapshot.CustomGameMappings.TryGetValue(key, out var saved);
+            if (current?.DisplayName != saved?.DisplayName || current?.FolderName != saved?.FolderName) count++;
         }
         return count;
     }

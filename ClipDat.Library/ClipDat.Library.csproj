@@ -18,6 +18,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Clippr\WindowsShellFileActions.cs" Link="WindowsShellFileActions.cs" />
+    <Compile Include="..\Clippr\ClipLibraryScanner.cs" Link="ClipLibraryScanner.cs" />
     <Content Include="..\Clippr\Assets\ClipprTray.ico" Link="Assets\ClipprTray.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

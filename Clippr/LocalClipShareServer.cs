@@ -5,10 +5,12 @@ using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Win32.SafeHandles;
 
 namespace Clippr;
 
@@ -19,7 +21,21 @@ namespace Clippr;
 internal sealed class LocalClipShareServer : IAsyncDisposable
 {
     internal sealed record ShareLink(string Url, DateTimeOffset ExpiresAt, string Token);
-    private sealed record SharedFile(string Path, string Root, DateTimeOffset ExpiresAt, CancellationTokenSource Revoked);
+    private sealed record SharedFile(string Path, string Root, FileIdentity Identity,
+        DateTimeOffset ExpiresAt, CancellationTokenSource Revoked);
+    private readonly record struct FileIdentity(uint Volume, uint High, uint Low);
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeFileTime { public uint Low; public uint High; }
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeFileInformation
+    {
+        public uint Attributes;
+        public NativeFileTime CreationTime, LastAccessTime, LastWriteTime;
+        public uint VolumeSerial, SizeHigh, SizeLow, LinkCount, FileIndexHigh, FileIndexLow;
+    }
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetFileInformationByHandle(SafeFileHandle handle, out NativeFileInformation information);
 
     private readonly object _gate = new();
     private readonly Dictionary<string, SharedFile> _files = new(StringComparer.Ordinal);
@@ -48,6 +64,7 @@ internal sealed class LocalClipShareServer : IAsyncDisposable
         var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(clipFolder));
         var fullPath = Path.GetFullPath(filePath);
         ValidateSharedFile(root, fullPath);
+        var identity = ReadIdentity(fullPath);
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -56,7 +73,7 @@ internal sealed class LocalClipShareServer : IAsyncDisposable
             EnsureListenerLocked();
             var token = Base64Url(RandomNumberGenerator.GetBytes(32));
             var expiresAt = DateTimeOffset.UtcNow.Add(lifetime);
-            _files.Add(token, new SharedFile(fullPath, root, expiresAt, new CancellationTokenSource()));
+            _files.Add(token, new SharedFile(fullPath, root, identity, expiresAt, new CancellationTokenSource()));
             var port = ((IPEndPoint)_listener!.LocalEndpoint).Port;
             return new ShareLink($"http://127.0.0.1:{port}/share/{token}", expiresAt, token);
         }
@@ -74,18 +91,37 @@ internal sealed class LocalClipShareServer : IAsyncDisposable
 
     private static void ValidateSharedFile(string root, string path)
     {
-        if (!string.Equals(Path.GetDirectoryName(path), root, StringComparison.OrdinalIgnoreCase))
-            throw new UnauthorizedAccessException("Only clips directly inside the configured clips folder can be shared.");
+        var relative = Path.GetRelativePath(root, path);
+        if (Path.IsPathRooted(relative) || relative == ".." ||
+            relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) || relative == ".")
+            throw new UnauthorizedAccessException("Only clips inside the configured clips folder can be shared.");
         var extension = Path.GetExtension(path);
         if (!extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase) &&
             !extension.Equals(".mkv", StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("Only MP4 and MKV clips can be shared.", nameof(path));
         if (!Directory.Exists(root) || (File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0)
             throw new DirectoryNotFoundException("The configured clips folder is unavailable or redirects elsewhere.");
+        for (var directory = Path.GetDirectoryName(path); directory is not null &&
+             !string.Equals(directory, root, StringComparison.OrdinalIgnoreCase); directory = Path.GetDirectoryName(directory))
+            if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
+                throw new UnauthorizedAccessException("Linked clip folders cannot be shared.");
         if (!File.Exists(path)) throw new FileNotFoundException("The saved clip is no longer available.", path);
         if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
             throw new UnauthorizedAccessException("Linked files cannot be shared.");
         if (new FileInfo(path).Length == 0) throw new IOException("An empty clip cannot be shared.");
+    }
+
+    private static FileIdentity ReadIdentity(string path)
+    {
+        using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+        return ReadIdentity(file.SafeFileHandle);
+    }
+
+    private static FileIdentity ReadIdentity(SafeFileHandle handle)
+    {
+        if (!GetFileInformationByHandle(handle, out var information))
+            throw new IOException("Cannot verify the selected clip identity.", Marshal.GetExceptionForHR(Marshal.GetHRForLastWin32Error()));
+        return new FileIdentity(information.VolumeSerial, information.FileIndexHigh, information.FileIndexLow);
     }
 
     public async ValueTask DisposeAsync()
@@ -197,7 +233,16 @@ internal sealed class LocalClipShareServer : IAsyncDisposable
                     return;
                 }
                 using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(token, shared.Revoked.Token);
-                await ServeFileAsync(stream, shared.Path, parsed.Method!, parsed.Range, parsed.IfRange, requestCancellation.Token).ConfigureAwait(false);
+                try
+                {
+                    await ServeFileAsync(stream, shared.Path, shared.Identity, parsed.Method!, parsed.Range,
+                        parsed.IfRange, requestCancellation.Token).ConfigureAwait(false);
+                }
+                catch (FileNotFoundException)
+                {
+                    Revoke(parsed.Token!);
+                    await WriteErrorAsync(stream, 404, "Not Found", token).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException) { }
             catch (IOException) { }
@@ -291,11 +336,13 @@ internal sealed class LocalClipShareServer : IAsyncDisposable
         return true;
     }
 
-    private static async Task ServeFileAsync(NetworkStream stream, string path, string method, string? rangeHeader,
+    private static async Task ServeFileAsync(NetworkStream stream, string path, FileIdentity identity, string method, string? rangeHeader,
         string? ifRange, CancellationToken token)
     {
         await using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, ChunkBytes,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
+        if (ReadIdentity(file.SafeFileHandle) != identity)
+            throw new FileNotFoundException("The shared clip has moved or changed.");
         var length = file.Length;
         var modified = File.GetLastWriteTimeUtc(path);
         var modifiedToSecond = new DateTime(modified.Ticks - modified.Ticks % TimeSpan.TicksPerSecond, DateTimeKind.Utc);

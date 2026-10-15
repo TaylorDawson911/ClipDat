@@ -11,13 +11,14 @@ namespace Clippr;
 
 public sealed class ClipprSettings
 {
-    private const int CurrentSchemaVersion = 1;
+    private const int CurrentSchemaVersion = 2;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
         NumberHandling = JsonNumberHandling.Strict
     };
+    private static readonly ClipprSettingsJsonContext JsonContext = new(JsonOptions);
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public string CaptureMode { get; set; } = "Screen";
@@ -47,6 +48,10 @@ public sealed class ClipprSettings
     public bool ChatMuted { get; set; }
     public bool MusicMuted { get; set; }
     public string ClipFolder { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "ClipDat");
+    public bool OrganizeClipsByGame { get; set; } = true;
+    public string GameDetectionMethod { get; set; } = "Automatic";
+    public string UnknownGameDestination { get; set; } = "Other";
+    public Dictionary<string, GameMapping> CustomGameMappings { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public string FilenameFormat { get; set; } = "ClipDat";
     public string Hotkey { get; set; } = "Ctrl+Shift+F10";
     public string ScreenshotHotkey { get; set; } = "Ctrl+Alt+F10";
@@ -84,7 +89,7 @@ public sealed class ClipprSettings
         ClipprSettings? loaded = null;
         if (state == 1)
         {
-            try { loaded = JsonSerializer.Deserialize<ClipprSettings>(json, JsonOptions); }
+            try { loaded = JsonSerializer.Deserialize(json, JsonContext.ClipprSettings); }
             catch (JsonException) { LastLoadWasCorrupt = true; }
         }
         else if (state == 0)
@@ -94,13 +99,17 @@ public sealed class ClipprSettings
         }
 
         var settings = loaded ?? new ClipprSettings();
+        // Existing installations retain their flat folder layout until the user enables organisation.
+        if (loaded is not null && (state == 0 || loaded.SchemaVersion < 2)) settings.OrganizeClipsByGame = false;
         settings.ValidateAndNormalize();
         return settings;
     }
 
-    private static ClipprSettings LoadLegacyLocalSettings()
+    private static ClipprSettings? LoadLegacyLocalSettings()
     {
         var values = ApplicationData.Current.LocalSettings.Values;
+        if (!values.ContainsKey("ClipFolder") && !values.ContainsKey("CaptureMode") &&
+            !values.ContainsKey("ReplaySeconds") && !values.ContainsKey("ClippingHotkey")) return null;
         var settings = new ClipprSettings();
         if (values.TryGetValue("CaptureMode", out var captureMode) && captureMode is string mode && mode is "Screen" or "Application") settings.CaptureMode = mode;
         if (values.TryGetValue("PreferredDisplay", out var display) && display is string displayName) settings.PreferredDisplay = displayName;
@@ -129,6 +138,9 @@ public sealed class ClipprSettings
     {
         var clone = (ClipprSettings)MemberwiseClone();
         clone.VoiceCommandPhrases = new Dictionary<string, string>(VoiceCommandPhrases, StringComparer.Ordinal);
+        clone.CustomGameMappings = CustomGameMappings.ToDictionary(pair => pair.Key,
+            pair => new GameMapping { DisplayName = pair.Value.DisplayName, FolderName = pair.Value.FolderName },
+            StringComparer.OrdinalIgnoreCase);
         return clone;
     }
 
@@ -159,6 +171,14 @@ public sealed class ClipprSettings
             .GroupBy(phrase => phrase, StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1))
             VoiceCommandPhrases = VoiceCommandCatalog.Defaults();
         if (QualityPreset is not ("Standard" or "High")) QualityPreset = "Standard";
+        if (GameDetectionMethod is not ("Automatic" or "CapturedApplication" or "ForegroundApplication")) GameDetectionMethod = "Automatic";
+        if (UnknownGameDestination is not ("Other" or "Root" or "CapturedApplication")) UnknownGameDestination = "Other";
+        CustomGameMappings ??= new Dictionary<string, GameMapping>(StringComparer.OrdinalIgnoreCase);
+        CustomGameMappings = CustomGameMappings.Where(pair => GameOrganisation.NormalizeExecutable(pair.Key) is not null &&
+            pair.Value is not null && !string.IsNullOrWhiteSpace(pair.Value.DisplayName) && pair.Value.DisplayName.Length <= 80 &&
+            GameOrganisation.SafeFolderName(pair.Value.FolderName) is not null)
+            .GroupBy(pair => GameOrganisation.NormalizeExecutable(pair.Key)!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Last().Value, StringComparer.OrdinalIgnoreCase);
         if (VideoFormat is not ("mp4" or "mkv")) VideoFormat = "mp4";
         if (FilenameFormat is not ("ClipDat" or "Timestamp" or "Application")) FilenameFormat = "ClipDat";
         if (NotificationStyle is not ("Windows" or "ClipDat")) NotificationStyle = "Windows";
@@ -210,6 +230,11 @@ public sealed class ClipprSettings
                 return "Voice command phrases must be unique.";
         }
         if (QualityPreset is not ("Standard" or "High")) return "Choose a supported quality preset.";
+        if (GameDetectionMethod is not ("Automatic" or "CapturedApplication" or "ForegroundApplication")) return "Choose a game detection method.";
+        if (UnknownGameDestination is not ("Other" or "Root" or "CapturedApplication")) return "Choose where unknown clips are saved.";
+        if (CustomGameMappings.Any(pair => GameOrganisation.NormalizeExecutable(pair.Key) is null ||
+            pair.Value is null || string.IsNullOrWhiteSpace(pair.Value.DisplayName) || pair.Value.DisplayName.Length > 80 ||
+            GameOrganisation.SafeFolderName(pair.Value.FolderName) is null)) return "Correct the custom game mappings.";
         if (Encoder is not "MediaFoundationHardware") return "Choose the supported Media Foundation hardware encoder.";
         if (VideoFormat is not ("mp4" or "mkv")) return "Choose MP4 or MKV.";
         if (FilenameFormat is not ("ClipDat" or "Timestamp" or "Application")) return "Choose a supported filename format.";
@@ -232,7 +257,10 @@ public sealed class ClipprSettings
     public void SaveAtomicJson()
     {
         SchemaVersion = Math.Max(SchemaVersion, CurrentSchemaVersion);
-        var json = JsonSerializer.Serialize(this, JsonOptions);
+        var json = JsonSerializer.Serialize(this, JsonContext.ClipprSettings);
         Marshal.ThrowExceptionForHR(NativeCapture.ClipprSaveSettingsJson(json));
     }
 }
+
+[JsonSerializable(typeof(ClipprSettings))]
+internal partial class ClipprSettingsJsonContext : JsonSerializerContext { }

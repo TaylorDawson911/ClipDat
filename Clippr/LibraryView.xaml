@@ -29,6 +29,7 @@
                 <ComboBoxItem Content="Name" />
                 <ComboBoxItem Content="Largest first" />
             </ComboBox>
+            <ComboBox x:Name="GameFilter" Grid.Column="5" Width="170" HorizontalAlignment="Left" SelectionChanged="OnFilterChanged" AutomationProperties.Name="Filter clips by game" />
             <Button Grid.Column="2" Content="Refresh" Click="OnRefreshClick" />
             <Button x:Name="OpenFolderButton" Grid.Column="3" Content="Open folder" Click="OnOpenFolderClick" />
             <Button x:Name="DeleteSelectedButton" Grid.Column="4" Content="Delete selected" Click="OnDeleteSelectedClick" IsEnabled="False" />

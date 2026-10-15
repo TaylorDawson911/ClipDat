@@ -16,6 +16,11 @@ ClipDat is a native Windows clipping and instant-replay desktop application buil
 - Configure capture, audio, output, notifications, hotkeys, and voice commands in the in-window settings page. Settings are stored as JSON under LocalAppData.
 - Use native Windows notifications, a system tray icon, shell file actions, global hotkeys, and an MSIX package.
 - Optionally enable constrained Windows speech commands. Speech recognition is opt-in, uses a local list grammar, and does not save or upload microphone audio.
+- Optionally organise replay clips into game folders using lightweight process identity sampled during the replay interval. Both the main Clip Library and optional standalone Library discover nested folders.
+
+### Game folders
+
+Open **Settings → Output → Automatic organisation** to enable or disable game folders, choose a detection method and fallback folder, and add custom executable mappings. New installations enable this by default; existing installations retain their flat clip folder until they opt in. Existing files are not moved. ClipDat recognises selected known game executables or user mappings; it does not label every foreground program as a game. If the buffered interval is mixed or lacks enough samples, the clip goes to the selected fallback (normally `Other`). Separate direct recording file organisation is not available in this build.
 
 ## Compatibility
 

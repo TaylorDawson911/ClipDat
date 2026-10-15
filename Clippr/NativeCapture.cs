@@ -181,6 +181,12 @@ internal static class NativeCapture
     [DllImport("ClipprCapture.dll", CallingConvention = CallingConvention.Cdecl)]
     internal static extern int ClipprConfigureHotkey(IntPtr capture, uint modifiers, uint virtualKey);
 
+    [DllImport("ClipprCapture.dll", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern int ClipprRouteReplayHotkeyToApp(IntPtr capture, int enabled);
+
+    [DllImport("ClipprCapture.dll", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern ulong ClipprTakeReplayHotkeyRequests(IntPtr capture);
+
     [DllImport("ClipprCapture.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
     internal static extern int ClipprSaveScreenshot(IntPtr capture, string path, int jpeg, uint quality);
 

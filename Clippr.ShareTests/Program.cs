@@ -95,6 +95,23 @@ Require(server.Revoke(first.Token), "independent first share revocation");
 using (var stillShared = await client.GetAsync(second.Url)) Require(stillShared.StatusCode == HttpStatusCode.OK, "other share remains active");
 Require(server.Revoke(second.Token) && server.Revoke(third.Token), "remaining shares revoke");
 
+var gameFolder = Path.Combine(root, "Deadlock");
+Directory.CreateDirectory(gameFolder);
+var nestedClip = Path.Combine(gameFolder, "match.mp4");
+await File.WriteAllBytesAsync(nestedClip, [10, 11, 12]);
+var nestedLink = server.CreateLink(root, nestedClip, TimeSpan.FromMinutes(1));
+using (var nestedResponse = await client.GetAsync(nestedLink.Url))
+    Require(nestedResponse.StatusCode == HttpStatusCode.OK &&
+        (await nestedResponse.Content.ReadAsByteArrayAsync()).AsSpan().SequenceEqual(new byte[] { 10, 11, 12 }),
+        "game subfolder clip is allowed");
+Require(server.Revoke(nestedLink.Token), "nested clip revocation");
+
+var replaceLink = server.CreateLink(root, nestedClip, TimeSpan.FromMinutes(1));
+File.Move(nestedClip, Path.Combine(gameFolder, "moved.mp4"), true);
+await File.WriteAllBytesAsync(nestedClip, [90, 91, 92]);
+using (var replaced = await client.GetAsync(replaceLink.Url))
+    Require(replaced.StatusCode == HttpStatusCode.NotFound, "replacement at old path is not shared");
+
 Console.WriteLine("Local share server smoke checks passed.");
 
 static void Require(bool condition, string description)

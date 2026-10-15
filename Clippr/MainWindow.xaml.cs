@@ -89,6 +89,10 @@ namespace Clippr
         private ulong _screenshotsCompletedSeen;
         private int _screenshotErrorSeen;
         private readonly Queue<string> _pendingReplayPaths = new();
+        private readonly GameReplayTimeline _gameTimeline = new();
+        private readonly Dictionary<string, string> _organisationWarnings = new(StringComparer.OrdinalIgnoreCase);
+        private bool _gameSamplePending;
+        private int _gameSampleGeneration;
         private int _shareExpirySelection;
         private DateTime _replayMessageUntil;
         private DateTime _infoErrorUntil;
@@ -583,6 +587,8 @@ namespace Clippr
             var wasScreenCapturing = _activeSource == CaptureSource.Screen;
             await ApplyStartupPreferenceAsync(settings.StartWithWindows);
             _settings = settings;
+            ++_gameSampleGeneration;
+            _gameTimeline.Clear();
             ApplyPreviewDetailMode();
             HotkeyLabel.Text = $"Clip {settings.Hotkey.Replace("+", " + ", StringComparison.Ordinal)} · Screenshot {settings.ScreenshotHotkey.Replace("+", " + ", StringComparison.Ordinal)}";
             _clipFormat = settings.VideoFormat;
@@ -674,6 +680,8 @@ namespace Clippr
             if (!ClipHotkey.TryParse(_settings.Hotkey, out var modifiers, out var key)) return;
             var result = NativeCapture.ClipprConfigureHotkey(_capture, modifiers, key);
             if (result < 0) ReplayMessage.Text = $"Could not update clipping hotkey · 0x{result:X8}";
+            var routeResult = NativeCapture.ClipprRouteReplayHotkeyToApp(_capture, _settings.OrganizeClipsByGame ? 1 : 0);
+            if (routeResult < 0) ReplayMessage.Text = $"Could not configure organised clip hotkey · 0x{routeResult:X8}";
             var (screenshotModifiers, screenshotKey) = _settings.ScreenshotHotkey switch
             {
                 "Ctrl+Alt+F9" => (2u | 1u, 0x78u),
@@ -968,6 +976,8 @@ namespace Clippr
 
         private async Task StopCaptureAsync()
         {
+            ++_gameSampleGeneration;
+            _gameTimeline.Clear();
             await _captureGate.WaitAsync();
             try
             {
@@ -989,6 +999,10 @@ namespace Clippr
         {
             if (_capture != IntPtr.Zero)
             {
+                if (_settings.OrganizeClipsByGame && !_gameSamplePending && !_closing &&
+                    _activeSource == _selectedSource && _activeTarget != IntPtr.Zero)
+                    SampleGameIdentity();
+                if (NativeCapture.ClipprTakeReplayHotkeyRequests(_capture) > 0) _ = SaveReplayAsync();
                 UpdateReplayStatus();
                 UpdateScreenshotStatus();
                 UpdateStorageHealth();
@@ -1044,6 +1058,33 @@ namespace Clippr
                     _ = RecoverDeviceAsync();
             }
             else if (status.State == 1) _lastCaptureError = 0;
+        }
+
+        private void SampleGameIdentity()
+        {
+            _gameSamplePending = true;
+            var generation = _gameSampleGeneration;
+            var settings = _settings.Clone();
+            var application = _selectedSource == CaptureSource.Application;
+            var window = _selectedWindow;
+            var monitor = _selectedMonitor;
+            _ = Task.Run(() => GameOrganisation.Sample(settings, application, window, monitor))
+                .ContinueWith(task => _dispatcherQueue?.TryEnqueue(() =>
+                {
+                    _gameSamplePending = false;
+                    if (task.IsCompletedSuccessfully && generation == _gameSampleGeneration && !_closing &&
+                        _settings.OrganizeClipsByGame && _activeSource == _selectedSource)
+                        _gameTimeline.Record(DateTimeOffset.UtcNow, task.Result);
+                    _settingsView?.RefreshGameFolderPreview();
+                }), TaskScheduler.Default);
+        }
+
+        internal (string Folder, bool Confirmed) GetNextClipFolderPreview(ClipprSettings settings)
+        {
+            var observation = _gameTimeline.Dominant(DateTimeOffset.UtcNow,
+                TimeSpan.FromSeconds(settings.ClipLengthSeconds));
+            return (GameOrganisation.DestinationFolder(settings, observation.FolderName,
+                observation.CapturedApplicationName), observation.FolderName is not null);
         }
 
         private void UpdateScreenshotStatus()
@@ -1408,7 +1449,8 @@ namespace Clippr
                 var failedCount = status.SavesFailed - _replayFailedSeen;
                 _replayFailedSeen = status.SavesFailed;
                 LocalReliabilityLog.Error("replay-export", status.LastSaveError);
-                while (failedCount-- > 0 && _pendingReplayPaths.Count > 0) _pendingReplayPaths.Dequeue();
+                while (failedCount-- > 0 && _pendingReplayPaths.Count > 0)
+                    _organisationWarnings.Remove(_pendingReplayPaths.Dequeue());
                 ShowInfoError(FormatExportError(status.LastSaveError));
                 ReplayMessage.Text = "Replay ready";
             }
@@ -1418,6 +1460,7 @@ namespace Clippr
                 _replayCompletedSeen = status.SavesCompleted;
                 ReplayMessage.Text = ReadyReplayText(status);
                 var savedAny = false;
+                string? organisationWarning = null;
                 while (completedCount-- > 0)
                 {
                     var completedPath = _pendingReplayPaths.Count > 0 ? _pendingReplayPaths.Dequeue() : null;
@@ -1432,6 +1475,7 @@ namespace Clippr
                         }
                         if (IsFinalizedSavedFile(completedPath))
                         {
+                            if (_organisationWarnings.Remove(completedPath!, out var warning)) organisationWarning = warning;
                             _lastReplayPath = completedPath;
                             SetLastSavedFile(completedPath);
                             savedAny = true;
@@ -1442,7 +1486,7 @@ namespace Clippr
                 }
                 if (savedAny)
                 {
-                    ShowClipSavedNotification(status.LastSaveShorter != 0);
+                    ShowClipSavedNotification(status.LastSaveShorter != 0, organisationWarning);
                     if (_settings.SaveNotificationSound) _ = MessageBeep(0x40);
                 }
                 else ShowInfoError("Clip export completed, but the saved file could not be verified.");
@@ -1503,11 +1547,11 @@ namespace Clippr
                 audio.MicrophoneError == unchecked((int)0x80070005) ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        private void ShowClipSavedNotification(bool shorter)
+        private void ShowClipSavedNotification(bool shorter, string? organisationWarning = null)
         {
-            ShowNotification(ClipNotificationKind.Saved, "Clip saved", shorter
+            ShowNotification(ClipNotificationKind.Saved, "Clip saved", organisationWarning ?? (shorter
                 ? "Saved the available replay, which was shorter than the requested duration."
-                : "Your clip is ready in the selected clip folder.");
+                : "Your clip is ready in the selected clip folder."));
         }
 
         internal void PreviewNotification(string style)
@@ -1600,7 +1644,9 @@ namespace Clippr
         {
             if (_capture == IntPtr.Zero) return;
             if (NativeCapture.ClipprGetReplayStatus(_capture).SavesActive > 0) return;
+            var duration = durationSeconds ?? _replaySeconds;
             string path;
+            string? organisationWarning = null;
             try
             {
                 Directory.CreateDirectory(_clipFolder);
@@ -1610,10 +1656,16 @@ namespace Clippr
                     return;
                 }
                 var stem = ClipFilename.Stem(_settings, DateTime.Now);
+                var observation = _settings.OrganizeClipsByGame
+                    ? _gameTimeline.Dominant(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(duration))
+                    : new GameObservation(null, null, null);
+                var prepared = GameOrganisation.PrepareFolder(_settings, observation, stem);
+                var folder = prepared.Folder;
+                organisationWarning = prepared.Warning;
                 do
                 {
                     var sequence = Interlocked.Increment(ref _clipSequence);
-                    path = Path.Combine(_clipFolder, $"{stem}-{sequence:D3}-{Guid.NewGuid():N}.{_clipFormat}");
+                    path = Path.Combine(folder, $"{stem}-{sequence:D3}-{Guid.NewGuid():N}.{_clipFormat}");
                 } while (File.Exists(path));
             }
             catch (Exception ex)
@@ -1627,11 +1679,12 @@ namespace Clippr
                 if (_capture == IntPtr.Zero || _closing) return;
                 var capture = _capture;
                 _pendingReplayPaths.Enqueue(path);
-                var duration = durationSeconds ?? _replaySeconds;
+                if (organisationWarning is not null) _organisationWarnings[path] = organisationWarning;
                 var result = await Task.Run(() => NativeCapture.ClipprSaveReplay(capture, duration, path));
                 if (result < 0)
                 {
                     if (_pendingReplayPaths.Count > 0) _pendingReplayPaths.Dequeue();
+                    _organisationWarnings.Remove(path);
                     LocalReliabilityLog.Error("clip-export", result);
                     ShowInfoError(result == unchecked((int)0x80070015)
                         ? "Replay is waiting for a keyframe" : FormatExportError(result));

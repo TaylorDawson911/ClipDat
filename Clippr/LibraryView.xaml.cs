@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
@@ -27,6 +28,7 @@ public sealed partial class LibraryView : UserControl, IDisposable
     private readonly List<LibraryItem> _all = [];
     private readonly Queue<LibraryItem> _thumbnailCache = new();
     private readonly Dictionary<string, ClipMetadata> _metadata = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (string OldPath, ClipMetadata Metadata)> _missingMetadata = new(StringComparer.OrdinalIgnoreCase);
     private readonly string _statePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ClipDat Library", "library.json");
     private FileSystemWatcher? _clipWatcher;
     private CancellationTokenSource? _watchDebounce;
@@ -44,6 +46,8 @@ public sealed partial class LibraryView : UserControl, IDisposable
         MediaGrid.ItemsSource = _visible;
         TypeFilter.SelectedIndex = 0;
         SortFilter.SelectedIndex = 0;
+        GameFilter.Items.Add(new ComboBoxItem { Content = "All games", Tag = "" });
+        GameFilter.SelectedIndex = 0;
         LoadState();
         ShowSelection(null);
         _ = RefreshAsync();
@@ -65,7 +69,7 @@ public sealed partial class LibraryView : UserControl, IDisposable
         try
         {
             if (!File.Exists(_statePath)) return;
-            var state = JsonSerializer.Deserialize<LibraryState>(File.ReadAllText(_statePath));
+            var state = JsonSerializer.Deserialize(File.ReadAllText(_statePath), LibraryStateJsonContext.Default.LibraryState);
             if (state is null) return;
             foreach (var entry in state.Items ?? []) _metadata[entry.Key] = entry.Value;
         }
@@ -83,7 +87,8 @@ public sealed partial class LibraryView : UserControl, IDisposable
     }
 
     private string SerializeState() => JsonSerializer.Serialize(new LibraryState(_folder,
-        new Dictionary<string, ClipMetadata>(_metadata, StringComparer.OrdinalIgnoreCase)));
+        new Dictionary<string, ClipMetadata>(_metadata, StringComparer.OrdinalIgnoreCase)),
+        LibraryStateJsonContext.Default.LibraryState);
 
     private void WriteState(string data)
     {
@@ -124,7 +129,9 @@ public sealed partial class LibraryView : UserControl, IDisposable
             var files = await Task.Run(() => ScanFiles(_folder, cancellation.Token), cancellation.Token);
             if (cancellation.IsCancellationRequested) return;
             _all.Clear();
-            _all.AddRange(files.Select(file => new LibraryItem(file, GetMetadata(file))));
+            IndexMissingMetadata();
+            _all.AddRange(files.Select(file => new LibraryItem(file, GetMetadata(file), _folder)));
+            RefreshGameFilter();
             ApplyFilter();
             SetupWatchers();
             await SaveStateAsync();
@@ -133,29 +140,55 @@ public sealed partial class LibraryView : UserControl, IDisposable
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { ShowStatus($"Could not scan clips: {ex.Message}"); }
     }
 
-    private static List<FileInfo> ScanFiles(string folder, CancellationToken token)
+    private static List<FileInfo> ScanFiles(string folder, CancellationToken token) =>
+        ClipLibraryScanner.Scan(folder, LibraryItem.IsSupported, token);
+
+    private ClipMetadata GetMetadata(FileInfo file)
     {
-        var files = new List<FileInfo>();
-        foreach (var directory in new[] { folder, Path.Combine(folder, "Screenshots") })
-        {
-            if (!Directory.Exists(directory)) continue;
-            foreach (var path in Directory.EnumerateFiles(directory))
-            {
-                token.ThrowIfCancellationRequested();
-                if (!LibraryItem.IsSupported(path)) continue;
-                try
-                {
-                    var info = new FileInfo(path);
-                    if (info.Length > 0) files.Add(info);
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-            }
-        }
-        return files;
+        if (_metadata.TryGetValue(file.FullName, out var metadata)) return metadata;
+        if (!_missingMetadata.TryGetValue(file.Name, out var moved) ||
+            (moved.Metadata.FileSize != 0 && moved.Metadata.FileSize != file.Length) ||
+            (moved.Metadata.CreationUtcTicks != 0 && moved.Metadata.CreationUtcTicks != file.CreationTimeUtc.Ticks))
+            return new ClipMetadata();
+        _missingMetadata.Remove(file.Name);
+        _metadata.Remove(moved.OldPath);
+        _metadata[file.FullName] = moved.Metadata;
+        return moved.Metadata;
     }
 
-    private ClipMetadata GetMetadata(FileInfo file) =>
-        _metadata.TryGetValue(file.FullName, out var metadata) ? metadata : new ClipMetadata();
+    private void IndexMissingMetadata()
+    {
+        _missingMetadata.Clear();
+        foreach (var group in _metadata.Where(pair => !File.Exists(pair.Key) && IsInsideFolder(_folder, pair.Key))
+            .GroupBy(pair => Path.GetFileName(pair.Key), StringComparer.OrdinalIgnoreCase))
+        {
+            var matches = group.Take(2).ToArray();
+            if (matches.Length == 1) _missingMetadata[group.Key] = (matches[0].Key, matches[0].Value);
+        }
+    }
+
+    private static bool IsInsideFolder(string folder, string path)
+    {
+        try
+        {
+            var relative = Path.GetRelativePath(folder, path);
+            return !Path.IsPathRooted(relative) && relative != ".." &&
+                   !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { return false; }
+    }
+
+    private void RefreshGameFilter()
+    {
+        var selected = (GameFilter.SelectedItem as ComboBoxItem)?.Tag as string ?? "";
+        GameFilter.Items.Clear();
+        GameFilter.Items.Add(new ComboBoxItem { Content = "All games", Tag = "" });
+        foreach (var game in _all.Where(item => !item.IsImage).Select(item => item.GameName)
+            .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase))
+            GameFilter.Items.Add(new ComboBoxItem { Content = game, Tag = game });
+        GameFilter.SelectedItem = GameFilter.Items.OfType<ComboBoxItem>().FirstOrDefault(item =>
+            string.Equals(item.Tag as string, selected, StringComparison.OrdinalIgnoreCase)) ?? GameFilter.Items[0];
+    }
 
     private void SetupWatchers()
     {
@@ -198,8 +231,10 @@ public sealed partial class LibraryView : UserControl, IDisposable
     {
         var search = SearchBox?.Text?.Trim() ?? "";
         var type = TypeFilter?.SelectedIndex ?? 0;
+        var game = (GameFilter?.SelectedItem as ComboBoxItem)?.Tag as string ?? "";
         IEnumerable<LibraryItem> filtered = _all.Where(item =>
             (type switch { 1 => !item.IsImage, 2 => item.IsImage, 3 => item.Metadata.Favourite, _ => true }) &&
+            (game.Length == 0 || string.Equals(item.GameName, game, StringComparison.OrdinalIgnoreCase)) &&
             (search.Length == 0 || item.DisplayName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
              item.Metadata.Description.Contains(search, StringComparison.OrdinalIgnoreCase) ||
              item.Metadata.Tags.Contains(search, StringComparison.OrdinalIgnoreCase)));
@@ -279,7 +314,7 @@ public sealed partial class LibraryView : UserControl, IDisposable
         PhotoPreview.Visibility = Visibility.Collapsed;
         EmptySelectionText.Visibility = item is null ? Visibility.Visible : Visibility.Collapsed;
         SelectedNameText.Text = item?.DisplayName ?? "";
-        SelectedDetailsText.Text = item is null ? "" : $"{item.Created:g}  ·  {FormatSize(item.Size)}";
+        SelectedDetailsText.Text = item is null ? "" : $"{item.Created:g}  ·  {FormatSize(item.Size)}  ·  {item.GameName}";
         DescriptionBox.Text = item?.Metadata.Description ?? "";
         TagsBox.Text = item?.Metadata.Tags ?? "";
         DescriptionBox.IsEnabled = item is not null;
@@ -309,6 +344,8 @@ public sealed partial class LibraryView : UserControl, IDisposable
         if (_showingSelection || _selected is null) return;
         _selected.Metadata.Description = DescriptionBox.Text;
         _selected.Metadata.Tags = TagsBox.Text;
+        _selected.Metadata.FileSize = _selected.Size;
+        _selected.Metadata.CreationUtcTicks = _selected.Created.ToUniversalTime().Ticks;
         _metadata[_selected.Path] = _selected.Metadata;
         ScheduleMetadataSave();
     }
@@ -317,6 +354,8 @@ public sealed partial class LibraryView : UserControl, IDisposable
     {
         if (_selected is null) return;
         _selected.Metadata.Favourite = !_selected.Metadata.Favourite;
+        _selected.Metadata.FileSize = _selected.Size;
+        _selected.Metadata.CreationUtcTicks = _selected.Created.ToUniversalTime().Ticks;
         _metadata[_selected.Path] = _selected.Metadata;
         FavouriteButton.Content = _selected.Metadata.Favourite ? "Remove from favourites" : "Add to favourites";
         ScheduleMetadataSave();
@@ -436,12 +475,15 @@ public sealed class LibraryItem : INotifyPropertyChanged
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg" };
     private BitmapImage? _thumbnail;
     public event PropertyChangedEventHandler? PropertyChanged;
-    public LibraryItem(FileInfo file, ClipMetadata metadata)
+    public LibraryItem(FileInfo file, ClipMetadata metadata, string rootFolder)
     {
         Path = file.FullName;
         Size = file.Length;
         Created = file.CreationTime;
         Metadata = metadata;
+        var relative = System.IO.Path.GetRelativePath(rootFolder, file.FullName);
+        var separator = relative.IndexOf(System.IO.Path.DirectorySeparatorChar);
+        GameName = IsImage || separator < 0 ? "Unsorted" : relative[..separator];
     }
     public static bool IsSupported(string path) => VideoExtensions.Contains(System.IO.Path.GetExtension(path)) || ImageExtensions.Contains(System.IO.Path.GetExtension(path));
     public string Path { get; }
@@ -449,8 +491,10 @@ public sealed class LibraryItem : INotifyPropertyChanged
     public long Size { get; }
     public DateTime Created { get; }
     public bool IsImage => ImageExtensions.Contains(System.IO.Path.GetExtension(Path));
+    public string GameName { get; }
     public ClipMetadata Metadata { get; }
-    public string Summary => $"{Created:g} · {(Size < 1_048_576 ? $"{Size / 1024.0:0} KB" : $"{Size / 1_048_576.0:0.0} MB")}";
+    public string Summary => $"{(IsImage ? "Screenshot" : GameName)} · {Created:g} · " +
+        (Size < 1_048_576 ? $"{Size / 1024.0:0} KB" : $"{Size / 1_048_576.0:0.0} MB");
     public BitmapImage? Thumbnail { get => _thumbnail; set { _thumbnail = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Thumbnail))); } }
 }
 
@@ -459,6 +503,11 @@ public sealed class ClipMetadata
     public string Description { get; set; } = "";
     public string Tags { get; set; } = "";
     public bool Favourite { get; set; }
+    public long FileSize { get; set; }
+    public long CreationUtcTicks { get; set; }
 }
 
 public sealed record LibraryState(string? Folder, Dictionary<string, ClipMetadata>? Items);
+
+[JsonSerializable(typeof(LibraryState))]
+internal partial class LibraryStateJsonContext : JsonSerializerContext { }

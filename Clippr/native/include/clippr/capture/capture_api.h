@@ -130,6 +130,8 @@ __declspec(dllexport) long __cdecl ClipprConfigureMusicAudio(void* capture, uint
 __declspec(dllexport) long __cdecl ClipprSetAudioGain(void* capture, int32_t stream_kind, float gain);
 __declspec(dllexport) long __cdecl ClipprConfigureHotkey(void* capture, uint32_t modifiers,
     uint32_t virtual_key);
+__declspec(dllexport) long __cdecl ClipprRouteReplayHotkeyToApp(void* capture, int32_t enabled);
+__declspec(dllexport) uint64_t __cdecl ClipprTakeReplayHotkeyRequests(void* capture);
 __declspec(dllexport) long __cdecl ClipprSaveScreenshot(void* capture, const wchar_t* path,
     int32_t jpeg, uint32_t quality);
 __declspec(dllexport) long __cdecl ClipprConfigureScreenshot(void* capture, const wchar_t* folder,

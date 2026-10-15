@@ -213,6 +213,8 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
     std::atomic<UINT> hotkey_modifiers{MOD_CONTROL | MOD_SHIFT};
     std::atomic<UINT> hotkey_virtual_key{VK_F10};
     std::atomic<HRESULT> hotkey_error{S_OK};
+    std::atomic<bool> route_replay_hotkey_to_app{false};
+    std::atomic<uint64_t> replay_hotkey_requests{0};
     std::atomic<uint32_t> replay_seconds{30};
     std::wstring replay_output_folder;
     std::wstring replay_output_extension{L"mp4"};
@@ -1116,6 +1118,10 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
                 continue;
             }
             if (message.message != WM_HOTKEY || message.wParam != 1) continue;
+            if (route_replay_hotkey_to_app.load(std::memory_order_acquire)) {
+                replay_hotkey_requests.fetch_add(1, std::memory_order_relaxed);
+                continue;
+            }
             try {
                 std::wstring output_folder, extension, source;
                 int filename_mode;
@@ -1512,6 +1518,18 @@ extern "C" long __cdecl ClipprSetAudioGain(void* capture, int32_t stream_kind, f
 extern "C" long __cdecl ClipprConfigureHotkey(void* capture, uint32_t modifiers, uint32_t virtual_key) {
     if (!capture) return E_POINTER;
     return static_cast<CaptureHandle*>(capture)->component->ConfigureHotkey(modifiers, virtual_key);
+}
+
+extern "C" long __cdecl ClipprRouteReplayHotkeyToApp(void* capture, int32_t enabled) {
+    if (!capture) return E_POINTER;
+    auto& component = *static_cast<CaptureHandle*>(capture)->component;
+    component.replay_hotkey_requests.store(0, std::memory_order_release);
+    component.route_replay_hotkey_to_app.store(enabled != 0, std::memory_order_release);
+    return S_OK;
+}
+
+extern "C" uint64_t __cdecl ClipprTakeReplayHotkeyRequests(void* capture) {
+    return capture ? static_cast<CaptureHandle*>(capture)->component->replay_hotkey_requests.exchange(0) : 0;
 }
 
 extern "C" long __cdecl ClipprSaveScreenshot(void* capture, const wchar_t* path, int32_t jpeg, uint32_t quality) {

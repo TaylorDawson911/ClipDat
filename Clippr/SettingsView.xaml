@@ -531,6 +531,43 @@
                                 </Border>
                             </StackPanel>
                         </Grid>
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <StackPanel Spacing="13">
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="Automatic organisation" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="Automatically organise clips into folders based on the game you're playing." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <Grid ColumnDefinitions="*,Auto" MinHeight="42">
+                                    <TextBlock Text="Organise clips by game" VerticalAlignment="Center" />
+                                    <ToggleSwitch x:Name="OrganiseClipsCheck" Grid.Column="1" OnContent="" OffContent="" Width="52" MinWidth="0" VerticalAlignment="Center" AutomationProperties.Name="Organise clips by game" />
+                                </Grid>
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+                                    <StackPanel Spacing="5"><TextBlock Text="Detection method" /><ComboBox x:Name="GameDetectionCombo" HorizontalAlignment="Stretch" AutomationProperties.Name="Game detection method" /></StackPanel>
+                                    <StackPanel Grid.Column="1" Spacing="5"><TextBlock Text="When no game is detected" /><ComboBox x:Name="UnknownGameCombo" HorizontalAlignment="Stretch" AutomationProperties.Name="Unknown game destination" /></StackPanel>
+                                </Grid>
+                                <StackPanel Spacing="5">
+                                    <TextBlock Text="Folder preview" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <Border Background="#20262D" CornerRadius="6" Padding="10,8"><TextBlock x:Name="GameFolderPreviewText" TextWrapping="Wrap" /></Border>
+                                    <TextBlock x:Name="GameFolderPreviewStatus" FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <TextBlock Text="Custom game mappings" FontWeight="SemiBold" />
+                                <TextBlock Text="Known games are recognised automatically. Add an executable here to override its name or recognise another game." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <ListView x:Name="GameMappingList" MaxHeight="145" SelectionMode="Single" AutomationProperties.Name="Custom game mappings">
+                                    <ListView.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" /></DataTemplate></ListView.ItemTemplate>
+                                </ListView>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Content="Add" Click="OnAddGameMappingClick" />
+                                    <Button Content="Edit" Click="OnEditGameMappingClick" />
+                                    <Button Content="Remove" Click="OnRemoveGameMappingClick" />
+                                    <Button Content="Reset overrides" Click="OnResetGameMappingsClick" />
+                                </StackPanel>
+                                <Grid ColumnDefinitions="*,Auto" MinHeight="42">
+                                    <TextBlock Text="Organise recordings too" VerticalAlignment="Center" />
+                                    <ToggleSwitch Grid.Column="1" IsEnabled="False" IsOn="False" OnContent="" OffContent="" Width="52" MinWidth="0" VerticalAlignment="Center" AutomationProperties.Name="Organise recordings too, unavailable" />
+                                </Grid>
+                                <TextBlock Text="Separate direct recording files are not available in this build. Replay clips are organised when enabled." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
 
