@@ -216,6 +216,8 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
     std::atomic<uint32_t> replay_seconds{30};
     std::wstring replay_output_folder;
     std::wstring replay_output_extension{L"mp4"};
+    int replay_filename_mode{}; // 0 = ClipDat, 1 = timestamp, 2 = application
+    std::wstring replay_filename_source{L"ClipDat"};
     struct ScreenshotRequest { ComPtr<ID3D11Texture2D> texture; HRESULT result{E_PENDING}; };
     std::mutex screenshot_mutex;
     std::condition_variable screenshot_ready;
@@ -836,6 +838,17 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
         } catch (...) { return E_OUTOFMEMORY; }
     }
 
+    long ConfigureReplayFilename(int mode, wchar_t const* source) noexcept {
+        if (mode < 0 || mode > 2 || !source || wcslen(source) > 64 ||
+            wcspbrk(source, L"\\/:*?\"<>|") != nullptr) return E_INVALIDARG;
+        try {
+            std::scoped_lock lock(replay_mutex);
+            replay_filename_mode = mode;
+            replay_filename_source = source;
+            return S_OK;
+        } catch (...) { return E_OUTOFMEMORY; }
+    }
+
     void StartReplayImpl() {
         if (replay_thread.joinable()) return;
         if (replay_limits.disk_directory.empty()) {
@@ -1104,8 +1117,10 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
             }
             if (message.message != WM_HOTKEY || message.wParam != 1) continue;
             try {
-                std::wstring output_folder, extension;
-                { std::scoped_lock lock(replay_mutex); output_folder = replay_output_folder; extension = replay_output_extension; }
+                std::wstring output_folder, extension, source;
+                int filename_mode;
+                { std::scoped_lock lock(replay_mutex); output_folder = replay_output_folder; extension = replay_output_extension;
+                  filename_mode = replay_filename_mode; source = replay_filename_source; }
                 if (output_folder.empty()) {
                     PWSTR videos{};
                     if (FAILED(SHGetKnownFolderPath(FOLDERID_Videos, 0, nullptr, &videos))) continue;
@@ -1120,10 +1135,11 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
                 if (FAILED(CoCreateGuid(&guid))) continue;
                 wchar_t unique[40]{};
                 if (!StringFromGUID2(guid, unique, static_cast<int>(std::size(unique)))) continue;
-                wchar_t filename[128]{};
-                swprintf_s(filename, L"Clippr-%04u%02u%02u-%02u%02u%02u-%03u-%s.%s",
-                    now.wYear, now.wMonth, now.wDay, now.wHour, now.wMinute, now.wSecond,
-                    now.wMilliseconds, unique, extension.c_str());
+                wchar_t filename[192]{};
+                const wchar_t* prefix = filename_mode == 1 ? L"" : filename_mode == 2 ? source.c_str() : L"ClipDat";
+                swprintf_s(filename, L"%s%s%04u-%02u-%02u %02u-%02u-%02u-%03u-%s.%s",
+                    prefix, filename_mode == 1 ? L"" : L" - ", now.wYear, now.wMonth, now.wDay,
+                    now.wHour, now.wMinute, now.wSecond, now.wMilliseconds, unique, extension.c_str());
                 const auto path = folder / filename;
                 (void)SaveReplay(replay_seconds.load(), path.c_str());
             } catch (...) {}
@@ -1385,6 +1401,11 @@ extern "C" long __cdecl ClipprConfigureReplayOutput(void* capture, wchar_t const
                                                        wchar_t const* extension) {
     if (!capture) return E_POINTER;
     return static_cast<CaptureHandle*>(capture)->component->ConfigureReplayOutput(folder, extension);
+}
+
+extern "C" long __cdecl ClipprConfigureReplayFilename(void* capture, int32_t mode, wchar_t const* source) {
+    if (!capture) return E_POINTER;
+    return static_cast<CaptureHandle*>(capture)->component->ConfigureReplayFilename(mode, source);
 }
 
 extern "C" long __cdecl ClipprSaveReplay(void* capture, uint32_t duration_seconds,

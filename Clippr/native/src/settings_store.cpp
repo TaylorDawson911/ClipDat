@@ -21,7 +21,7 @@ namespace
     constexpr const wchar_t* knownKeys[]{
         L"schemaVersion", L"captureMode", L"preferredDisplay", L"preferredApplicationProcessId",
         L"clipLengthSeconds", L"resolution", L"frameRate", L"encoder", L"qualityPreset",
-        L"videoFormat", L"desktopAudioEnabled", L"microphoneAudioEnabled", L"audioOutputId",
+        L"videoFormat", L"filenameFormat", L"desktopAudioEnabled", L"microphoneAudioEnabled", L"audioOutputId",
         L"audioInputId", L"gameAudioProcessId", L"discordAudioProcessId", L"clipFolder",
         L"hotkey", L"saveNotificationSound", L"startWithWindows", L"startCaptureAutomatically",
         L"replayMemoryLimitMb", L"musicAudioProcessId",

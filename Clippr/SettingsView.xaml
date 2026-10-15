@@ -417,133 +417,120 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <ScrollViewer x:Name="AudioPage" Grid.Row="0" Margin="28,24,8,16" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-                    <StackPanel Spacing="16" Margin="0,0,20,0" MaxWidth="720" HorizontalAlignment="Stretch">
-                        <StackPanel Spacing="3" Margin="0,0,0,2">
-                            <TextBlock Text="Audio" FontSize="28" FontWeight="SemiBold" />
-                            <TextBlock Text="Choose real WASAPI devices and independent sources for your clips." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
-                        <Border Style="{StaticResource SettingsCardStyle}">
-                            <StackPanel Spacing="12">
-                                <TextBlock Text="Desktop audio" FontSize="16" FontWeight="SemiBold" />
-                                <Grid ColumnDefinitions="*,Auto" MinHeight="42">
-                                    <TextBlock Text="Capture desktop output" VerticalAlignment="Center" />
-                                    <ToggleSwitch x:Name="DesktopAudioCheck" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center" AutomationProperties.Name="Capture desktop output" />
-                                </Grid>
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Output device" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="OutputDeviceCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
+                <ScrollViewer x:Name="AudioPage" Grid.Row="0" Margin="24,20,8,14" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel Spacing="16" Margin="0,0,16,0" HorizontalAlignment="Stretch">
+                        <Grid ColumnDefinitions="58,*" ColumnSpacing="16">
+                            <Border Width="58" Height="58" CornerRadius="14" Background="#263C55" BorderBrush="#3F6589" BorderThickness="1"><FontIcon Glyph="&#xE767;" FontFamily="Segoe Fluent Icons" FontSize="27" Foreground="White" /></Border>
+                            <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center"><TextBlock Text="Audio" FontSize="27" FontWeight="SemiBold" /><TextBlock Text="Choose real WASAPI devices and independent sources for your clips." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></StackPanel>
+                        </Grid>
+                        <Grid x:Name="AudioCardsGrid" ColumnDefinitions="*,*,0" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="16">
+                            <StackPanel x:Name="AudioLeftCards" Spacing="16">
+                                <Border Style="{StaticResource SettingsCardStyle}"><StackPanel Spacing="14">
+                                    <Grid ColumnDefinitions="44,*,Auto" ColumnSpacing="12"><Border Width="44" Height="44" Background="#273039" CornerRadius="9"><FontIcon Glyph="&#xE7F4;" FontSize="21" /></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Desktop audio" FontSize="17" FontWeight="SemiBold" /><TextBlock Text="Capture system audio from speakers and applications." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></StackPanel><ToggleSwitch x:Name="DesktopAudioCheck" Grid.Column="2" OnContent="" OffContent="" Width="52" MinWidth="0" HorizontalAlignment="Right" VerticalAlignment="Center" AutomationProperties.Name="Capture desktop output" /></Grid>
+                                    <Grid ColumnDefinitions="105,*,Auto" ColumnSpacing="8"><TextBlock Text="Output device" VerticalAlignment="Center" /><ComboBox x:Name="OutputDeviceCombo" AutomationProperties.Name="Output audio device" Grid.Column="1" HorizontalAlignment="Stretch" /><Button Grid.Column="2" Content="↻" Click="OnRefreshAudioDevicesClick" AutomationProperties.Name="Refresh output devices" /></Grid>
+                                    <Grid ColumnDefinitions="105,*,Auto" ColumnSpacing="8"><TextBlock Text="Signal peak" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><StackPanel x:Name="DesktopPreviewMeter" Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center" /><TextBlock x:Name="DesktopPreviewLevel" Grid.Column="2" Text="—" MinWidth="52" TextAlignment="Right" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></Grid>
+                                    <TextBlock Text="Desktop capture can include games, music and other applications." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel></Border>
+                                <Border Style="{StaticResource SettingsCardStyle}"><StackPanel Spacing="14">
+                                    <Grid ColumnDefinitions="44,*,Auto" ColumnSpacing="12"><Border Width="44" Height="44" Background="#273039" CornerRadius="9"><FontIcon Glyph="&#xE720;" FontSize="21" /></Border><StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Microphone" FontSize="17" FontWeight="SemiBold" /><TextBlock Text="Capture your microphone audio." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></StackPanel><ToggleSwitch x:Name="MicrophoneCheck" Grid.Column="2" OnContent="" OffContent="" Width="52" MinWidth="0" HorizontalAlignment="Right" VerticalAlignment="Center" AutomationProperties.Name="Capture microphone" /></Grid>
+                                    <Grid ColumnDefinitions="105,*,Auto" ColumnSpacing="8"><TextBlock Text="Input device" VerticalAlignment="Center" /><ComboBox x:Name="InputDeviceCombo" AutomationProperties.Name="Microphone input device" Grid.Column="1" HorizontalAlignment="Stretch" /><Button Grid.Column="2" Content="↻" Click="OnRefreshAudioDevicesClick" AutomationProperties.Name="Refresh microphone devices" /></Grid>
+                                    <Grid ColumnDefinitions="105,*,Auto" ColumnSpacing="8"><TextBlock Text="Input volume" VerticalAlignment="Center" /><Slider x:Name="SettingsMicrophoneVolumeSlider" AutomationProperties.Name="Microphone input volume" Grid.Column="1" Minimum="0" Maximum="200" StepFrequency="1" ValueChanged="OnSettingsMicrophoneVolumeChanged" /><TextBlock x:Name="SettingsMicrophoneVolumeText" Grid.Column="2" Text="100%" MinWidth="52" TextAlignment="Right" VerticalAlignment="Center" /></Grid>
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8"><TextBlock x:Name="MicrophoneTestStatus" Text="Use Test microphone to check the captured signal." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" /><Button Grid.Column="1" Content="Test microphone" Click="OnTestMicrophoneClick" /></Grid>
+                                </StackPanel></Border>
                             </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource SettingsCardStyle}">
-                            <StackPanel Spacing="12">
-                                <TextBlock Text="Microphone" FontSize="16" FontWeight="SemiBold" />
-                                <Grid ColumnDefinitions="*,Auto" MinHeight="42">
-                                    <TextBlock Text="Capture microphone" VerticalAlignment="Center" />
-                                    <ToggleSwitch x:Name="MicrophoneCheck" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center" AutomationProperties.Name="Capture microphone" />
-                                </Grid>
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Input device" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="InputDeviceCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
+                            <StackPanel x:Name="AudioRightCards" Grid.Column="1" Spacing="16">
+                                <Border x:Name="AdvancedApplicationAudioCard" Style="{StaticResource SettingsCardStyle}" Visibility="Collapsed"><StackPanel Spacing="14">
+                                    <StackPanel><TextBlock Text="Application audio" FontSize="17" FontWeight="SemiBold" /><TextBlock Text="Capture audio from specific applications on separate tracks." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></StackPanel>
+                                    <Grid ColumnDefinitions="105,*,Auto" ColumnSpacing="8"><TextBlock Text="Game audio" VerticalAlignment="Center" /><ComboBox x:Name="GameAudioCombo" AutomationProperties.Name="Game audio application" Grid.Column="1" HorizontalAlignment="Stretch" /><Button Grid.Column="2" Content="↻" Click="OnRefreshAudioApplicationsClick" AutomationProperties.Name="Refresh game applications" /></Grid>
+                                    <Grid ColumnDefinitions="105,*,Auto" ColumnSpacing="8"><TextBlock Text="Discord audio" VerticalAlignment="Center" /><ComboBox x:Name="DiscordAudioCombo" AutomationProperties.Name="Chat audio application" Grid.Column="1" HorizontalAlignment="Stretch" /><Button Grid.Column="2" Content="↻" Click="OnRefreshAudioApplicationsClick" AutomationProperties.Name="Refresh chat applications" /></Grid>
+                                    <TextBlock Text="Process sources are saved on separate tracks. They replace desktop mixing to prevent duplicate audio. Windows 10 build 20348 or newer is required." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel></Border>
+                                <Border Style="{StaticResource SettingsCardStyle}"><StackPanel Spacing="13">
+                                    <StackPanel><TextBlock Text="Audio preview" FontSize="17" FontWeight="SemiBold" /><TextBlock Text="Captured signal peaks in real time (dBFS)." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></StackPanel>
+                                    <Grid ColumnDefinitions="105,*,Auto" ColumnSpacing="8"><TextBlock Text="Desktop audio" /><StackPanel x:Name="PreviewDesktopMeter" Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center" /><TextBlock x:Name="PreviewDesktopLevel" Grid.Column="2" Text="—" MinWidth="52" TextAlignment="Right" FontSize="12" /></Grid>
+                                    <Grid ColumnDefinitions="105,*,Auto" ColumnSpacing="8"><TextBlock Text="Microphone" /><StackPanel x:Name="PreviewMicrophoneMeter" Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center" /><TextBlock x:Name="PreviewMicrophoneLevel" Grid.Column="2" Text="—" MinWidth="52" TextAlignment="Right" FontSize="12" /></Grid>
+                                    <Grid ColumnDefinitions="105,*,Auto" ColumnSpacing="8"><TextBlock Text="Game audio" /><StackPanel x:Name="PreviewGameMeter" Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center" /><TextBlock x:Name="PreviewGameLevel" Grid.Column="2" Text="—" MinWidth="52" TextAlignment="Right" FontSize="12" /></Grid>
+                                    <Grid ColumnDefinitions="105,*,Auto" ColumnSpacing="8"><TextBlock Text="Chat audio" /><StackPanel x:Name="PreviewChatMeter" Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center" /><TextBlock x:Name="PreviewChatLevel" Grid.Column="2" Text="—" MinWidth="52" TextAlignment="Right" FontSize="12" /></Grid>
+                                </StackPanel></Border>
                             </StackPanel>
-                        </Border>
-                        <Border x:Name="AdvancedApplicationAudioCard" Style="{StaticResource SettingsCardStyle}" Visibility="Collapsed">
-                            <StackPanel Spacing="12">
-                                <TextBlock Text="Application audio" FontSize="16" FontWeight="SemiBold" />
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Game audio" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="GameAudioCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Discord audio" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="DiscordAudioCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
-                                <TextBlock Text="Selected sources are saved on separate tracks. Process audio replaces the desktop mix to avoid duplicates." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock Text="Windows process loopback needs Windows 10 build 20348 or newer." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            </StackPanel>
-                        </Border>
+                            <Border x:Name="AudioBehaviourCard" Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource SettingsCardStyle}"><StackPanel Spacing="6"><TextBlock Text="Audio behaviour" FontSize="17" FontWeight="SemiBold" /><TextBlock Text="Process audio replaces the desktop mix when selected, preventing duplicate sound without altering track levels." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><TextBlock x:Name="AudioAvailabilityText" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></StackPanel></Border>
+                        </Grid>
                     </StackPanel>
                 </ScrollViewer>
 
-                <ScrollViewer x:Name="OutputPage" Grid.Row="0" Margin="28,24,8,16" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-                    <StackPanel Spacing="16" Margin="0,0,20,0" MaxWidth="720" HorizontalAlignment="Stretch">
-                        <StackPanel Spacing="3" Margin="0,0,0,2">
-                            <TextBlock Text="Output" FontSize="28" FontWeight="SemiBold" />
-                            <TextBlock Text="Set replay duration, file type, quality and save location." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
-                        <Border Style="{StaticResource SettingsCardStyle}">
-                            <StackPanel Spacing="12">
-                                <TextBlock Text="Replay clips" FontSize="16" FontWeight="SemiBold" />
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Clip length" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="ClipLengthCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
-                                <Grid x:Name="CustomLengthRow" ColumnDefinitions="190,*" ColumnSpacing="16" Visibility="Collapsed">
-                                    <TextBlock Text="Custom duration (seconds)" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <NumberBox x:Name="CustomLengthBox" Grid.Column="1" Minimum="1" Maximum="3600" SpinButtonPlacementMode="Compact" />
-                                </Grid>
-                                <Grid x:Name="AdvancedReplayMemoryRow" ColumnDefinitions="190,*" ColumnSpacing="16" Visibility="Collapsed">
-                                    <TextBlock Text="Replay memory limit" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="ReplayMemoryCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Quality preset" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="QualityCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Video format" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="VideoFormatCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
-                                <TextBlock Text="This format is used for Save Clip replay exports. Direct recordings use MP4." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Clip folder" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <Grid Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                        <TextBox x:Name="ClipFolderBox" MinWidth="180" />
-                                        <Button Grid.Column="1" Content="Browse…" Click="OnBrowseFolderClick" />
-                                    </Grid>
-                                </Grid>
-                                <Grid ColumnDefinitions="*,Auto" MinHeight="42">
-                                    <TextBlock Text="Play a sound after a clip is saved" VerticalAlignment="Center" />
-                                    <ToggleSwitch x:Name="NotificationSoundCheck" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center" AutomationProperties.Name="Play a sound after a clip is saved" />
-                                </Grid>
-                                <Grid x:Name="AdvancedNotificationRow" ColumnDefinitions="190,*" ColumnSpacing="16" Visibility="Collapsed">
-                                    <TextBlock Text="Notification style" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <StackPanel Grid.Column="1" Spacing="7">
-                                        <ComboBox x:Name="NotificationStyleCombo" MinWidth="260" HorizontalAlignment="Stretch" />
-                                        <TextBlock Text="Show a notification when ClipDat is ready to clip and after a clip is saved."
-                                                   FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                                        <Button Content="Preview notification" HorizontalAlignment="Left" Click="OnPreviewNotificationClick" />
-                                    </StackPanel>
-                                </Grid>
-                                <Grid x:Name="AdvancedHotkeyRow" ColumnDefinitions="190,*" ColumnSpacing="16" Visibility="Collapsed">
-                                    <TextBlock Text="Global clipping hotkey" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="HotkeyCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
-                                <TextBlock Text="Screenshots" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0" />
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Image format" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="ScreenshotFormatCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
-                                <Grid x:Name="ScreenshotJpegQualityRow" ColumnDefinitions="190,*" ColumnSpacing="16" Visibility="Collapsed">
-                                    <TextBlock Text="JPEG quality" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <NumberBox x:Name="ScreenshotJpegQualityBox" Grid.Column="1" Minimum="1" Maximum="100" SpinButtonPlacementMode="Compact" />
-                                </Grid>
-                                <Grid ColumnDefinitions="*,Auto" MinHeight="42">
-                                    <TextBlock Text="Copy screenshot to clipboard" VerticalAlignment="Center" />
-                                    <ToggleSwitch x:Name="CopyScreenshotCheck" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center" AutomationProperties.Name="Copy screenshot to clipboard" />
-                                </Grid>
-                                <Grid ColumnDefinitions="*,Auto" MinHeight="42">
-                                    <TextBlock Text="Play a sound after a screenshot is saved" VerticalAlignment="Center" />
-                                    <ToggleSwitch x:Name="ScreenshotSoundCheck" Grid.Column="1" OnContent="" OffContent="" VerticalAlignment="Center" AutomationProperties.Name="Play a sound after a screenshot is saved" />
-                                </Grid>
-                                <Grid ColumnDefinitions="190,*" ColumnSpacing="16">
-                                    <TextBlock Text="Screenshot hotkey" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                    <ComboBox x:Name="ScreenshotHotkeyCombo" Grid.Column="1" MinWidth="260" HorizontalAlignment="Stretch" />
-                                </Grid>
+                <ScrollViewer x:Name="OutputPage" Grid.Row="0" Margin="24,20,8,14" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel Spacing="16" Margin="0,0,16,0" HorizontalAlignment="Stretch">
+                        <Grid ColumnDefinitions="58,*" ColumnSpacing="16">
+                            <Border Width="58" Height="58" CornerRadius="14" Background="#263C55" BorderBrush="#3F6589" BorderThickness="1">
+                                <FontIcon Glyph="&#xE74E;" FontFamily="Segoe Fluent Icons" FontSize="27" Foreground="White" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                <TextBlock Text="Output" FontSize="27" FontWeight="SemiBold" />
+                                <TextBlock Text="Configure how ClipDat saves your clips, replays and screenshots." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
-                        </Border>
+                        </Grid>
+                        <Grid x:Name="OutputCardsGrid" ColumnDefinitions="1.15*,*,0" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="16">
+                            <StackPanel x:Name="OutputLeftCards" Spacing="16">
+                                <Border Style="{StaticResource SettingsCardStyle}">
+                                    <StackPanel Spacing="14">
+                                        <StackPanel Spacing="3"><TextBlock Text="Storage location" FontSize="17" FontWeight="SemiBold" /><TextBlock Text="Choose where your clips and screenshots are saved." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" /></StackPanel>
+                                        <StackPanel Spacing="5">
+                                            <TextBlock Text="Clip folder" />
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <TextBox x:Name="ClipFolderBox" AutomationProperties.Name="Clip folder" />
+                                                <Button Grid.Column="1" Content="Browse…" Click="OnBrowseFolderClick" />
+                                            </Grid>
+                                        </StackPanel>
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <TextBlock Text="Clips are saved here. Screenshots go in its Screenshots subfolder." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                            <Button Grid.Column="1" Content="Open folder" Click="OnOpenOutputFolderClick" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource SettingsCardStyle}">
+                                    <StackPanel Spacing="13">
+                                        <StackPanel Spacing="3"><TextBlock Text="Replay clips" FontSize="17" FontWeight="SemiBold" /><TextBlock Text="Settings for Save Clip and replay exports." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></StackPanel>
+                                        <Grid ColumnDefinitions="135,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="3"><TextBlock Text="Clip length" VerticalAlignment="Center" /><ComboBox x:Name="ClipLengthCombo" AutomationProperties.Name="Clip length" Grid.Column="1" HorizontalAlignment="Stretch" /><TextBlock Grid.Row="1" Grid.Column="1" Text="How much recent footage Save Clip requests." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></Grid>
+                                        <Grid x:Name="CustomLengthRow" ColumnDefinitions="135,*" ColumnSpacing="12" Visibility="Collapsed"><TextBlock Text="Custom seconds" VerticalAlignment="Center" /><NumberBox x:Name="CustomLengthBox" Grid.Column="1" Minimum="1" Maximum="3600" SpinButtonPlacementMode="Compact" /></Grid>
+                                        <Grid x:Name="AdvancedReplayMemoryRow" ColumnDefinitions="135,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="3" Visibility="Collapsed"><TextBlock Text="Replay memory limit" TextWrapping="Wrap" VerticalAlignment="Center" /><ComboBox x:Name="ReplayMemoryCombo" AutomationProperties.Name="Replay memory limit" Grid.Column="1" HorizontalAlignment="Stretch" /><TextBlock Grid.Row="1" Grid.Column="1" Text="Maximum RAM used for the replay buffer." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></Grid>
+                                        <Grid ColumnDefinitions="135,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="3"><TextBlock Text="Quality preset" VerticalAlignment="Center" /><ComboBox x:Name="QualityCombo" AutomationProperties.Name="Quality preset" Grid.Column="1" HorizontalAlignment="Stretch" /><TextBlock Grid.Row="1" Grid.Column="1" Text="Higher quality uses more disk space." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></Grid>
+                                        <Grid ColumnDefinitions="135,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="3"><TextBlock Text="Video format" VerticalAlignment="Center" /><ComboBox x:Name="VideoFormatCombo" AutomationProperties.Name="Replay video format" Grid.Column="1" HorizontalAlignment="Stretch" /><TextBlock Grid.Row="1" Grid.Column="1" Text="Replay exports use this format; direct recordings use MP4." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></Grid>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource SettingsCardStyle}">
+                                    <StackPanel Spacing="13">
+                                        <StackPanel Spacing="3"><TextBlock Text="Screenshots" FontSize="17" FontWeight="SemiBold" /><TextBlock Text="Settings for screenshot captures." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></StackPanel>
+                                        <Grid ColumnDefinitions="135,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="3"><TextBlock Text="Image format" VerticalAlignment="Center" /><ComboBox x:Name="ScreenshotFormatCombo" AutomationProperties.Name="Screenshot image format" Grid.Column="1" HorizontalAlignment="Stretch" /><TextBlock Grid.Row="1" Grid.Column="1" Text="PNG is lossless; JPEG uses adjustable quality." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></Grid>
+                                        <Grid x:Name="ScreenshotJpegQualityRow" ColumnDefinitions="135,*" ColumnSpacing="12" Visibility="Collapsed"><TextBlock Text="JPEG quality" VerticalAlignment="Center" /><NumberBox x:Name="ScreenshotJpegQualityBox" Grid.Column="1" Minimum="1" Maximum="100" SpinButtonPlacementMode="Compact" /></Grid>
+                                        <Grid ColumnDefinitions="*,Auto" MinHeight="40"><StackPanel VerticalAlignment="Center"><TextBlock Text="Copy screenshot to clipboard" TextWrapping="Wrap" /><TextBlock Text="Automatically copy saved screenshots." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" /></StackPanel><ToggleSwitch x:Name="CopyScreenshotCheck" Grid.Column="1" OnContent="" OffContent="" Width="52" MinWidth="0" HorizontalAlignment="Right" VerticalAlignment="Center" AutomationProperties.Name="Copy screenshot to clipboard" /></Grid>
+                                        <Grid ColumnDefinitions="*,Auto" MinHeight="40"><TextBlock Text="Play a sound after a screenshot is saved" TextWrapping="Wrap" VerticalAlignment="Center" /><ToggleSwitch x:Name="ScreenshotSoundCheck" Grid.Column="1" OnContent="" OffContent="" Width="52" MinWidth="0" HorizontalAlignment="Right" VerticalAlignment="Center" AutomationProperties.Name="Play a sound after a screenshot is saved" /></Grid>
+                                        <Grid ColumnDefinitions="135,*" ColumnSpacing="12"><TextBlock Text="Screenshot hotkey" VerticalAlignment="Center" /><ComboBox x:Name="ScreenshotHotkeyCombo" AutomationProperties.Name="Screenshot hotkey" Grid.Column="1" HorizontalAlignment="Stretch" /></Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                            <StackPanel x:Name="OutputRightCards" Grid.Column="1" Spacing="16">
+                                <Border Style="{StaticResource SettingsCardStyle}">
+                                    <StackPanel Spacing="13">
+                                        <StackPanel Spacing="3"><TextBlock Text="File naming" FontSize="17" FontWeight="SemiBold" /><TextBlock Text="Choose how your clips are named." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></StackPanel>
+                                        <StackPanel Spacing="5"><TextBlock Text="Naming format" /><ComboBox x:Name="FilenameFormatCombo" AutomationProperties.Name="Filename format" HorizontalAlignment="Stretch" /></StackPanel>
+                                        <StackPanel Spacing="5"><TextBlock Text="Example" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><Border Background="#20262D" CornerRadius="6" Padding="10,8"><TextBlock x:Name="FilenameExampleText" TextWrapping="Wrap" /></Border><TextBlock Text="A unique ID is also added when saving." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource SettingsCardStyle}">
+                                    <StackPanel Spacing="13">
+                                        <StackPanel Spacing="3"><TextBlock Text="Notifications" FontSize="17" FontWeight="SemiBold" /><TextBlock Text="Choose what happens when a clip is saved." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></StackPanel>
+                                        <Grid ColumnDefinitions="*,Auto" MinHeight="40"><TextBlock Text="Play a sound after a clip is saved" TextWrapping="Wrap" VerticalAlignment="Center" /><ToggleSwitch x:Name="NotificationSoundCheck" Grid.Column="1" OnContent="" OffContent="" Width="52" MinWidth="0" HorizontalAlignment="Right" VerticalAlignment="Center" AutomationProperties.Name="Play a sound after a clip is saved" /></Grid>
+                                        <StackPanel x:Name="AdvancedNotificationRow" Spacing="10" Visibility="Collapsed"><StackPanel Spacing="5"><TextBlock Text="Notification style" /><ComboBox x:Name="NotificationStyleCombo" AutomationProperties.Name="Notification style" HorizontalAlignment="Stretch" /></StackPanel><Button Content="Preview notification" HorizontalAlignment="Left" Click="OnPreviewNotificationClick" /></StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <Border x:Name="AdvancedHotkeyCard" Style="{StaticResource SettingsCardStyle}" Visibility="Collapsed">
+                                    <StackPanel Spacing="13">
+                                        <StackPanel Spacing="3"><TextBlock Text="Hotkeys" FontSize="17" FontWeight="SemiBold" /><TextBlock Text="Global hotkey for saving a clip." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /></StackPanel>
+                                        <StackPanel x:Name="AdvancedHotkeyRow" Spacing="6" Visibility="Collapsed"><TextBlock Text="Global clipping hotkey" /><Grid ColumnDefinitions="*,Auto" ColumnSpacing="8"><ComboBox x:Name="HotkeyCombo" AutomationProperties.Name="Global clipping hotkey" HorizontalAlignment="Stretch" /><Button Grid.Column="1" Content="Edit" Click="OnEditHotkeyClick" AutomationProperties.Name="Edit clipping hotkey" /></Grid></StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
                     </StackPanel>
                 </ScrollViewer>
 
@@ -620,7 +607,7 @@
                 <Border Grid.Row="1" Background="#252A30" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
                         BorderThickness="0,1,0,0" Padding="24,10,28,12" MinHeight="68">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-                        <TextBlock x:Name="SettingsStatus" Text="Settings loaded · press Save changes to apply." Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        <TextBlock x:Name="SettingsStatus" Text="Settings loaded · no changes to save." Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
                         <Button x:Name="SaveSettingsButton" Grid.Column="1" Content="Save changes" Style="{StaticResource AccentButtonStyle}" Click="OnSaveSettingsClick" />
                     </Grid>

@@ -108,6 +108,9 @@ __declspec(dllexport) long __cdecl ClipprConfigureReplay(void* capture, uint32_t
 __declspec(dllexport) long __cdecl ClipprConfigureReplayOutput(void* capture,
                                                               const wchar_t* folder,
                                                               const wchar_t* extension);
+__declspec(dllexport) long __cdecl ClipprConfigureReplayFilename(void* capture,
+                                                                int32_t mode,
+                                                                const wchar_t* source);
 __declspec(dllexport) long __cdecl ClipprSaveReplay(void* capture, uint32_t duration_seconds,
                                                    const wchar_t* path);
 __declspec(dllexport) struct ClipprReplayStatus __cdecl ClipprGetReplayStatus(void* capture);

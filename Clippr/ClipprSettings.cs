@@ -47,6 +47,7 @@ public sealed class ClipprSettings
     public bool ChatMuted { get; set; }
     public bool MusicMuted { get; set; }
     public string ClipFolder { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "ClipDat");
+    public string FilenameFormat { get; set; } = "ClipDat";
     public string Hotkey { get; set; } = "Ctrl+Shift+F10";
     public string ScreenshotHotkey { get; set; } = "Ctrl+Alt+F10";
     public string ScreenshotFormat { get; set; } = "png";
@@ -159,9 +160,10 @@ public sealed class ClipprSettings
             VoiceCommandPhrases = VoiceCommandCatalog.Defaults();
         if (QualityPreset is not ("Standard" or "High")) QualityPreset = "Standard";
         if (VideoFormat is not ("mp4" or "mkv")) VideoFormat = "mp4";
+        if (FilenameFormat is not ("ClipDat" or "Timestamp" or "Application")) FilenameFormat = "ClipDat";
         if (NotificationStyle is not ("Windows" or "ClipDat")) NotificationStyle = "Windows";
         if (Encoder is not "MediaFoundationHardware") Encoder = "MediaFoundationHardware";
-        if (Hotkey is not ("Ctrl+Shift+F10" or "Ctrl+Alt+F10" or "Ctrl+Shift+F9")) Hotkey = "Ctrl+Shift+F10";
+        if (!ClipHotkey.TryParse(Hotkey, out _, out _)) Hotkey = "Ctrl+Shift+F10";
         if (ScreenshotHotkey is not ("Ctrl+Alt+F10" or "Ctrl+Alt+F9" or "Ctrl+Shift+F8")) ScreenshotHotkey = "Ctrl+Alt+F10";
         if (ScreenshotFormat is not ("png" or "jpg")) ScreenshotFormat = "png";
         ScreenshotJpegQuality = Math.Clamp(ScreenshotJpegQuality, 1, 100);
@@ -210,8 +212,9 @@ public sealed class ClipprSettings
         if (QualityPreset is not ("Standard" or "High")) return "Choose a supported quality preset.";
         if (Encoder is not "MediaFoundationHardware") return "Choose the supported Media Foundation hardware encoder.";
         if (VideoFormat is not ("mp4" or "mkv")) return "Choose MP4 or MKV.";
+        if (FilenameFormat is not ("ClipDat" or "Timestamp" or "Application")) return "Choose a supported filename format.";
         if (NotificationStyle is not ("Windows" or "ClipDat")) return "Choose a notification style.";
-        if (Hotkey is not ("Ctrl+Shift+F10" or "Ctrl+Alt+F10" or "Ctrl+Shift+F9")) return "Choose a supported clipping hotkey.";
+        if (!ClipHotkey.TryParse(Hotkey, out _, out _)) return "Choose Ctrl + Alt/Shift + F1–F12 for clipping.";
         if (ScreenshotHotkey is not ("Ctrl+Alt+F10" or "Ctrl+Alt+F9" or "Ctrl+Shift+F8")) return "Choose a supported screenshot hotkey.";
         if (Hotkey == ScreenshotHotkey) return "Clipping and screenshot hotkeys must be different.";
         if (ScreenshotFormat is not ("png" or "jpg")) return "Choose PNG or JPEG for screenshots.";

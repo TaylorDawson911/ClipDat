@@ -665,12 +665,10 @@ namespace Clippr
         private void ConfigureNativeHotkey()
         {
             if (_capture == IntPtr.Zero) return;
-            var (modifiers, key) = _settings.Hotkey switch
-            {
-                "Ctrl+Alt+F10" => (2u | 1u, 0x79u),
-                "Ctrl+Shift+F9" => (2u | 4u, 0x78u),
-                _ => (2u | 4u, 0x79u)
-            };
+            var namingMode = _settings.FilenameFormat switch { "Timestamp" => 1, "Application" => 2, _ => 0 };
+            var namingResult = NativeCapture.ClipprConfigureReplayFilename(_capture, namingMode, ClipFilename.SourceName(_settings));
+            if (namingResult < 0) ReplayMessage.Text = $"Could not update clip naming · 0x{namingResult:X8}";
+            if (!ClipHotkey.TryParse(_settings.Hotkey, out var modifiers, out var key)) return;
             var result = NativeCapture.ClipprConfigureHotkey(_capture, modifiers, key);
             if (result < 0) ReplayMessage.Text = $"Could not update clipping hotkey · 0x{result:X8}";
             var (screenshotModifiers, screenshotKey) = _settings.ScreenshotHotkey switch
@@ -1570,7 +1568,7 @@ namespace Clippr
                     ShowInfoError($"Clip not saved. Keep at least {_settings.MinimumFreeDiskSpaceGb} GB free on the clips drive.");
                     return;
                 }
-                var stem = $"ClipDat-{DateTime.Now:yyyyMMdd-HHmmss-fff}";
+                var stem = ClipFilename.Stem(_settings, DateTime.Now);
                 do
                 {
                     var sequence = Interlocked.Increment(ref _clipSequence);
@@ -1918,12 +1916,17 @@ namespace Clippr
         {
             var levels = _capture != IntPtr.Zero && !_closing
                 ? NativeCapture.ClipprTakeAudioLevels(_capture) : default;
+            if (_settingsView?.IsAudioPageVisible == true)
+                _settingsView.RefreshAudioPreview(levels, GetCurrentAudioStatus());
             UpdateAudioMeter(0, DesktopMeterTrack, DesktopMeter, levels.Desktop);
             UpdateAudioMeter(1, MicrophoneMeterTrack, MicrophoneMeter, levels.Microphone);
             UpdateAudioMeter(2, GameMeterTrack, GameMeter, levels.Game);
             UpdateAudioMeter(3, ChatMeterTrack, ChatMeter, levels.Chat);
             UpdateAudioMeter(4, MusicMeterTrack, MusicMeter, levels.Music);
         }
+
+        internal NativeCapture.AudioStatus GetCurrentAudioStatus() =>
+            _capture != IntPtr.Zero && !_closing ? NativeCapture.ClipprGetAudioStatus(_capture) : default;
 
         private void UpdateAudioMeter(int index, Grid track, Border meter, float samplePeak)
         {

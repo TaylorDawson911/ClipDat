@@ -29,6 +29,9 @@ public sealed partial class SettingsView : UserControl
     private bool _applying;
     private bool _transitioning;
     private bool? _captureSourceCompact;
+    private DateTime _nextAudioPreviewUpdate;
+    private DateTime _microphoneTestUntil;
+    private bool _microphoneTestObserved;
     private FrameworkElement? _currentPage;
     private FrameworkElement? _pendingPage;
     private string _feedbackUrl = "";
@@ -48,6 +51,7 @@ public sealed partial class SettingsView : UserControl
         VersionText.Text = GetVersion();
         ConfigureFeedback();
         _ready = true;
+        SaveSettingsButton.IsEnabled = ClipprSettings.LastLoadWasCorrupt;
         if (ClipprSettings.LastLoadWasCorrupt)
         {
             SettingsStatus.Text = "Settings file was unreadable · defaults loaded. Save Settings to replace it.";
@@ -56,6 +60,10 @@ public sealed partial class SettingsView : UserControl
         SettingsNavigation.SelectedItem = SettingsNavigation.MenuItems.OfType<NavigationViewItem>().FirstOrDefault();
         QuickShareExpirationCombo.SelectedIndex = 1;
         CapturePage.SizeChanged += (_, _) => UpdateCaptureSourceLayout();
+        AudioPage.SizeChanged += (_, _) => UpdateAudioLayout();
+        foreach (var meter in new[] { DesktopPreviewMeter, PreviewDesktopMeter, PreviewMicrophoneMeter, PreviewGameMeter, PreviewChatMeter })
+            for (var segment = 0; segment < 16; segment++)
+                meter.Children.Add(new Border { Width = 7, Height = 13, CornerRadius = new CornerRadius(1), Background = new SolidColorBrush(ColorHelper.FromArgb(255, 46, 57, 69)) });
         _ = RefreshAppStorageUsageAsync();
     }
 
@@ -68,6 +76,33 @@ public sealed partial class SettingsView : UserControl
         Grid.SetColumn(CaptureApplicationField, compact ? 0 : 2);
         Grid.SetRow(CaptureApplicationField, compact ? 1 : 0);
         Grid.SetColumnSpan(CaptureApplicationField, compact ? 2 : 1);
+    }
+
+    private void UpdateOutputLayout()
+    {
+        var compact = OutputPage.ActualWidth < 720;
+        OutputCardsGrid.ColumnDefinitions[0].Width = compact ? new GridLength(1, GridUnitType.Star) : new GridLength(1.15, GridUnitType.Star);
+        OutputCardsGrid.ColumnDefinitions[1].Width = compact ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+        Grid.SetColumn(OutputRightCards, compact ? 0 : 1);
+        Grid.SetRow(OutputRightCards, compact ? 1 : 0);
+    }
+
+    private void UpdateAudioLayout()
+    {
+        var compact = AudioPage.ActualWidth < 720;
+        AudioCardsGrid.ColumnDefinitions[1].Width = compact ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+        Grid.SetColumn(AudioRightCards, compact ? 0 : 1);
+        Grid.SetRow(AudioRightCards, compact ? 1 : 0);
+        Grid.SetRow(AudioBehaviourCard, compact ? 2 : 1);
+        Grid.SetColumnSpan(AudioBehaviourCard, compact ? 1 : 2);
+    }
+
+    private void UpdateFilenameExample()
+    {
+        var example = _draft.Clone();
+        example.FilenameFormat = GetTag(FilenameFormatCombo);
+        var extension = GetTag(VideoFormatCombo);
+        FilenameExampleText.Text = $"{ClipFilename.Stem(example, DateTime.Now)}-001.{extension}";
     }
 
     private void PopulateControls()
@@ -85,10 +120,14 @@ public sealed partial class SettingsView : UserControl
             ("10", "10 GB"), ("20", "20 GB"));
         AddOptions(QualityCombo, ("Standard", "Standard · 8 Mbps"), ("High", "High · 16 Mbps"));
         AddOptions(VideoFormatCombo, ("mp4", "MP4"), ("mkv", "Matroska (MKV)"));
+        AddOptions(FilenameFormatCombo, ("ClipDat", "ClipDat - YYYY-MM-DD HH-mm-ss"),
+            ("Timestamp", "YYYY-MM-DD HH-mm-ss"), ("Application", "Application - YYYY-MM-DD HH-mm-ss"));
         AddOptions(NotificationStyleCombo, ("Windows", "Windows notifications"),
             ("ClipDat", "ClipDat slide-in cards"));
         AddOptions(HotkeyCombo, ("Ctrl+Shift+F10", "Ctrl + Shift + F10"),
             ("Ctrl+Alt+F10", "Ctrl + Alt + F10"), ("Ctrl+Shift+F9", "Ctrl + Shift + F9"));
+        if (!HotkeyCombo.Items.OfType<ComboBoxItem>().Any(item => Equals(item.Tag, _draft.Hotkey)))
+            AddOptions(HotkeyCombo, (_draft.Hotkey, _draft.Hotkey.Replace("+", " + ", StringComparison.Ordinal)));
         AddOptions(ScreenshotFormatCombo, ("png", "PNG · lossless"), ("jpg", "JPEG"));
         AddOptions(ScreenshotHotkeyCombo, ("Ctrl+Alt+F10", "Ctrl + Alt + F10"),
             ("Ctrl+Alt+F9", "Ctrl + Alt + F9"), ("Ctrl+Shift+F8", "Ctrl + Shift + F8"));
@@ -103,6 +142,8 @@ public sealed partial class SettingsView : UserControl
         SelectTag(MinimumFreeSpaceCombo, _draft.MinimumFreeDiskSpaceGb.ToString());
         SelectTag(QualityCombo, _draft.QualityPreset);
         SelectTag(VideoFormatCombo, _draft.VideoFormat);
+        SelectTag(FilenameFormatCombo, _draft.FilenameFormat);
+        UpdateFilenameExample();
         SelectTag(NotificationStyleCombo, _draft.NotificationStyle);
         SelectTag(HotkeyCombo, _draft.Hotkey);
         SelectTag(ScreenshotFormatCombo, _draft.ScreenshotFormat);
@@ -125,6 +166,8 @@ public sealed partial class SettingsView : UserControl
         ScreenshotJpegQualityRow.Visibility = _draft.ScreenshotFormat == "jpg" ? Visibility.Visible : Visibility.Collapsed;
         CopyScreenshotCheck.IsOn = _draft.CopyScreenshotToClipboard;
         ScreenshotSoundCheck.IsOn = _draft.ScreenshotNotificationSound;
+        SettingsMicrophoneVolumeSlider.Value = _draft.MicrophoneVolume;
+        SettingsMicrophoneVolumeText.Text = $"{_draft.MicrophoneVolume}%";
         CustomLengthBox.Value = _draft.ClipLengthSeconds;
         CustomLengthRow.Visibility = GetTag(ClipLengthCombo) == "custom" ? Visibility.Visible : Visibility.Collapsed;
         ClipFolderBox.Text = _draft.ClipFolder;
@@ -145,13 +188,14 @@ public sealed partial class SettingsView : UserControl
         PopulateAudioDevices(renderDevices: false, InputDeviceCombo, _draft.AudioInputId);
         PopulateApplications(GameAudioCombo, _draft.GameAudioProcessId, applications);
         PopulateApplications(DiscordAudioCombo, _draft.DiscordAudioProcessId, applications);
+        UpdateAudioAvailability();
     }
 
     private void WireEvents()
     {
         foreach (var combo in new[] { CaptureModeCombo, PreferredDisplayCombo, PreferredApplicationCombo, ResolutionCombo, FrameRateCombo,
                      OutputDeviceCombo, InputDeviceCombo, GameAudioCombo, DiscordAudioCombo, ClipLengthCombo,
-                     ReplayMemoryCombo, QualityCombo, VideoFormatCombo, NotificationStyleCombo, HotkeyCombo })
+                     ReplayMemoryCombo, QualityCombo, VideoFormatCombo, FilenameFormatCombo, NotificationStyleCombo, HotkeyCombo })
             combo.SelectionChanged += OnSettingChanged;
         MinimumFreeSpaceCombo.SelectionChanged += OnSettingChanged;
         ScreenshotFormatCombo.SelectionChanged += OnSettingChanged;
@@ -174,6 +218,7 @@ public sealed partial class SettingsView : UserControl
         NotificationSoundCheck.Toggled += OnSettingChanged;
         CustomLengthBox.ValueChanged += OnCustomLengthChanged;
         ClipFolderBox.LostFocus += OnClipFolderLostFocus;
+        OutputPage.SizeChanged += (_, _) => UpdateOutputLayout();
     }
 
     private static void AddOptions(ComboBox combo, params (string Tag, string Label)[] options)
@@ -422,6 +467,8 @@ public sealed partial class SettingsView : UserControl
                 Content = device.Name + (device.IsDefault != 0 ? " · Default" : ""),
                 Tag = device.Id
             });
+        if (!string.IsNullOrEmpty(selectedId) && !combo.Items.OfType<ComboBoxItem>().Any(item => Equals(item.Tag, selectedId)))
+            combo.Items.Add(new ComboBoxItem { Content = "Unavailable · reconnect or choose a device", Tag = selectedId });
         SelectTag(combo, selectedId);
     }
 
@@ -431,7 +478,107 @@ public sealed partial class SettingsView : UserControl
         combo.Items.Add(new ComboBoxItem { Content = "None", Tag = "0" });
         foreach (var app in applications)
             combo.Items.Add(new ComboBoxItem { Content = app.ApplicationName, Tag = app.ProcessId.ToString() });
+        if (selectedPid != 0 && !combo.Items.OfType<ComboBoxItem>().Any(item => Equals(item.Tag, selectedPid.ToString())))
+            combo.Items.Add(new ComboBoxItem { Content = "Application unavailable · refresh or choose another", Tag = selectedPid.ToString() });
         SelectTag(combo, selectedPid.ToString());
+    }
+
+    private void UpdateAudioAvailability()
+    {
+        var missing = new List<string>();
+        if ((OutputDeviceCombo.SelectedItem as ComboBoxItem)?.Content?.ToString()?.StartsWith("Unavailable", StringComparison.Ordinal) == true) missing.Add("output device");
+        if ((InputDeviceCombo.SelectedItem as ComboBoxItem)?.Content?.ToString()?.StartsWith("Unavailable", StringComparison.Ordinal) == true) missing.Add("microphone");
+        if ((GameAudioCombo.SelectedItem as ComboBoxItem)?.Content?.ToString()?.StartsWith("Application unavailable", StringComparison.Ordinal) == true) missing.Add("game application");
+        if ((DiscordAudioCombo.SelectedItem as ComboBoxItem)?.Content?.ToString()?.StartsWith("Application unavailable", StringComparison.Ordinal) == true) missing.Add("chat application");
+        AudioAvailabilityText.Text = missing.Count == 0 ? "" : $"Unavailable: {string.Join(", ", missing)}. Reconnect or choose another source; the saved selection has been preserved.";
+    }
+
+    private void OnRefreshAudioDevicesClick(object sender, RoutedEventArgs e)
+    {
+        var output = GetTag(OutputDeviceCombo);
+        var input = GetTag(InputDeviceCombo);
+        _applying = true;
+        try
+        {
+            PopulateAudioDevices(true, OutputDeviceCombo, output);
+            PopulateAudioDevices(false, InputDeviceCombo, input);
+            UpdateAudioAvailability();
+        }
+        finally { _applying = false; }
+    }
+
+    private void OnRefreshAudioApplicationsClick(object sender, RoutedEventArgs e)
+    {
+        var game = uint.TryParse(GetTag(GameAudioCombo), out var gamePid) ? gamePid : 0;
+        var chat = uint.TryParse(GetTag(DiscordAudioCombo), out var chatPid) ? chatPid : 0;
+        _applying = true;
+        try
+        {
+            var applications = _mainWindow.EnumerateSettingsApplications();
+            PopulateApplications(GameAudioCombo, game, applications);
+            PopulateApplications(DiscordAudioCombo, chat, applications);
+            UpdateAudioAvailability();
+        }
+        finally { _applying = false; }
+    }
+
+    private void OnSettingsMicrophoneVolumeChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    {
+        if (!_ready || _applying) return;
+        SettingsMicrophoneVolumeText.Text = $"{Math.Round(SettingsMicrophoneVolumeSlider.Value)}%";
+        UpdateDraftAndDirtyState();
+    }
+
+    private void OnTestMicrophoneClick(object sender, RoutedEventArgs e)
+    {
+        var status = _mainWindow.GetCurrentAudioStatus();
+        if (!_savedSnapshot.MicrophoneAudioEnabled)
+            MicrophoneTestStatus.Text = "Enable microphone capture and save changes before testing.";
+        else if (status.MicrophoneRunning == 0)
+            MicrophoneTestStatus.Text = status.MicrophoneError != 0
+                ? $"Microphone unavailable · 0x{status.MicrophoneError:X8}. Check device access and permissions."
+                : "Microphone is not running. Check the selected device and capture state.";
+        else
+        {
+            _microphoneTestObserved = false;
+            _microphoneTestUntil = DateTime.UtcNow.AddSeconds(10);
+            MicrophoneTestStatus.Text = "Listening for microphone signal for 10 seconds…";
+        }
+    }
+
+    internal void RefreshAudioPreview(NativeCapture.AudioLevels levels, NativeCapture.AudioStatus status)
+    {
+        if (AudioPage.Visibility != Visibility.Visible || DateTime.UtcNow < _nextAudioPreviewUpdate) return;
+        _nextAudioPreviewUpdate = DateTime.UtcNow.AddMilliseconds(120);
+        UpdateSignalMeter(DesktopPreviewMeter, DesktopPreviewLevel, status.DesktopRunning != 0, levels.Desktop);
+        UpdateSignalMeter(PreviewDesktopMeter, PreviewDesktopLevel, status.DesktopRunning != 0, levels.Desktop);
+        UpdateSignalMeter(PreviewMicrophoneMeter, PreviewMicrophoneLevel, status.MicrophoneRunning != 0, levels.Microphone);
+        UpdateSignalMeter(PreviewGameMeter, PreviewGameLevel, status.GameRunning != 0, levels.Game);
+        UpdateSignalMeter(PreviewChatMeter, PreviewChatLevel, status.ChatRunning != 0, levels.Chat);
+        if (_microphoneTestUntil == DateTime.MinValue) return;
+        if (levels.Microphone > 0.001f) _microphoneTestObserved = true;
+        if (DateTime.UtcNow >= _microphoneTestUntil)
+        {
+            MicrophoneTestStatus.Text = _microphoneTestObserved
+                ? "Test finished · microphone signal detected." : "Test finished · no microphone signal detected.";
+            _microphoneTestUntil = DateTime.MinValue;
+            return;
+        }
+        MicrophoneTestStatus.Text = levels.Microphone > 0.001f
+            ? $"Microphone signal detected · {20 * Math.Log10(levels.Microphone):F0} dBFS"
+            : "Listening… no microphone signal detected yet.";
+    }
+
+    internal bool IsAudioPageVisible => AudioPage.Visibility == Visibility.Visible;
+
+    private static void UpdateSignalMeter(StackPanel meter, TextBlock label, bool running, float peak)
+    {
+        var decibels = peak > 0 ? 20 * Math.Log10(peak) : double.NegativeInfinity;
+        var count = running && peak > 0.001f ? (int)Math.Ceiling(Math.Clamp((decibels + 60) / 60, 0, 1) * meter.Children.Count) : 0;
+        for (var i = 0; i < meter.Children.Count; i++)
+            ((Border)meter.Children[i]).Background = new SolidColorBrush(i < count
+                ? ColorHelper.FromArgb(255, 48, 136, 235) : ColorHelper.FromArgb(255, 46, 57, 69));
+        label.Text = !running ? "Off" : peak <= 0 ? "−∞ dBFS" : $"{decibels:F0} dBFS";
     }
 
     private void OnNavigationSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
@@ -471,6 +618,9 @@ public sealed partial class SettingsView : UserControl
                 var newPage = _pendingPage;
                 newPage.Visibility = Visibility.Visible;
                 _currentPage = newPage;
+                newPage.UpdateLayout();
+                if (ReferenceEquals(newPage, OutputPage)) UpdateOutputLayout();
+                if (ReferenceEquals(newPage, AudioPage)) UpdateAudioLayout();
                 await FadePageAsync(newPage, 0, 1, 190);
             }
         }
@@ -506,6 +656,7 @@ public sealed partial class SettingsView : UserControl
         AdvancedReplayMemoryRow.Visibility = visibility;
         AdvancedNotificationRow.Visibility = visibility;
         AdvancedHotkeyRow.Visibility = visibility;
+        AdvancedHotkeyCard.Visibility = visibility;
         AdvancedFeedbackActions.Visibility = visibility;
         if (_ready && !_applying) UpdateDraftAndDirtyState();
     }
@@ -516,6 +667,8 @@ public sealed partial class SettingsView : UserControl
         if (ReferenceEquals(sender, ClipLengthCombo))
             CustomLengthRow.Visibility = GetTag(ClipLengthCombo) == "custom" ? Visibility.Visible : Visibility.Collapsed;
         UpdateDraftAndDirtyState();
+        if (ReferenceEquals(sender, FilenameFormatCombo) || ReferenceEquals(sender, VideoFormatCombo) ||
+            ReferenceEquals(sender, CaptureModeCombo) || ReferenceEquals(sender, PreferredApplicationCombo)) UpdateFilenameExample();
     }
 
     private void OnCustomLengthChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
@@ -558,6 +711,7 @@ public sealed partial class SettingsView : UserControl
         _draft.MinimumFreeDiskSpaceGb = int.TryParse(GetTag(MinimumFreeSpaceCombo), out var minimumFree) ? minimumFree : 2;
         _draft.QualityPreset = GetTag(QualityCombo);
         _draft.VideoFormat = GetTag(VideoFormatCombo);
+        _draft.FilenameFormat = GetTag(FilenameFormatCombo);
         _draft.ClipFolder = ClipFolderBox.Text;
         _draft.SaveNotificationSound = NotificationSoundCheck.IsOn;
         _draft.NotificationStyle = GetTag(NotificationStyleCombo);
@@ -568,9 +722,11 @@ public sealed partial class SettingsView : UserControl
         _draft.CopyScreenshotToClipboard = CopyScreenshotCheck.IsOn;
         _draft.ScreenshotNotificationSound = ScreenshotSoundCheck.IsOn;
         _draft.ScreenshotHotkey = GetTag(ScreenshotHotkeyCombo);
+        _draft.MicrophoneVolume = (int)Math.Round(SettingsMicrophoneVolumeSlider.Value);
         ScreenshotJpegQualityRow.Visibility = _draft.ScreenshotFormat == "jpg" ? Visibility.Visible : Visibility.Collapsed;
-        SaveSettingsButton.IsEnabled = true;
-        SettingsStatus.Text = "Unsaved changes · press Save changes to apply.";
+        var dirty = CountUnsavedOptions() > 0;
+        SaveSettingsButton.IsEnabled = dirty;
+        SettingsStatus.Text = dirty ? "Unsaved changes · press Save changes to apply." : "Settings loaded · no changes to save.";
         SettingsStatus.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(ColorHelper.FromArgb(255, 174, 182, 188));
     }
 
@@ -689,6 +845,54 @@ public sealed partial class SettingsView : UserControl
         _mainWindow.PreviewNotification(GetTag(NotificationStyleCombo));
     }
 
+    [DllImport("user32.dll")]
+    private static extern short GetKeyState(int virtualKey);
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool RegisterHotKey(IntPtr window, int id, uint modifiers, uint virtualKey);
+    [DllImport("user32.dll")]
+    private static extern bool UnregisterHotKey(IntPtr window, int id);
+
+    private async void OnEditHotkeyClick(object sender, RoutedEventArgs e)
+    {
+        var entry = new TextBox { Text = _draft.Hotkey.Replace("+", " + ", StringComparison.Ordinal),
+            IsReadOnly = true, PlaceholderText = "Press Ctrl + Alt/Shift + F1–F12" };
+        var message = new TextBlock { Text = "Press a shortcut. It must differ from the screenshot hotkey.",
+            TextWrapping = TextWrapping.Wrap, Foreground = new SolidColorBrush(ColorHelper.FromArgb(255, 174, 182, 188)) };
+        var content = new StackPanel { Spacing = 10 };
+        content.Children.Add(entry);
+        content.Children.Add(message);
+        var dialog = new ContentDialog { XamlRoot = XamlRoot, Title = "Edit clipping hotkey", Content = content,
+            PrimaryButtonText = "Use shortcut", CloseButtonText = "Cancel", IsPrimaryButtonEnabled = false };
+        string? captured = null;
+        entry.KeyDown += (_, args) =>
+        {
+            var key = (int)args.Key;
+            var ctrl = GetKeyState(0x11) < 0;
+            var alt = GetKeyState(0x12) < 0;
+            var shift = GetKeyState(0x10) < 0;
+            if (key is < 0x70 or > 0x7B || !ctrl || alt == shift) return;
+            captured = $"Ctrl+{(alt ? "Alt" : "Shift")}+F{key - 0x6F}";
+            entry.Text = captured.Replace("+", " + ", StringComparison.Ordinal);
+            var conflict = captured == GetTag(ScreenshotHotkeyCombo);
+            var available = captured == _savedSnapshot.Hotkey;
+            if (!conflict && !available && ClipHotkey.TryParse(captured, out var modifiers, out var virtualKey))
+            {
+                available = RegisterHotKey(IntPtr.Zero, 0x4D4C, modifiers | 0x4000u, virtualKey);
+                if (available) UnregisterHotKey(IntPtr.Zero, 0x4D4C);
+            }
+            message.Text = conflict ? "That shortcut is already used for screenshots."
+                : !available ? "That shortcut is in use or unavailable on this PC." : "Ready to save this shortcut.";
+            dialog.IsPrimaryButtonEnabled = !conflict && available;
+            args.Handled = true;
+        };
+        dialog.Opened += (_, _) => entry.Focus(FocusState.Programmatic);
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary || captured is null) return;
+        if (!HotkeyCombo.Items.OfType<ComboBoxItem>().Any(item => Equals(item.Tag, captured)))
+            AddOptions(HotkeyCombo, (captured, captured.Replace("+", " + ", StringComparison.Ordinal)));
+        SelectTag(HotkeyCombo, captured);
+        UpdateDraftAndDirtyState();
+    }
+
     private async void OnSaveSettingsClick(object sender, RoutedEventArgs e)
     {
         await SaveSettingsAsync();
@@ -717,7 +921,7 @@ public sealed partial class SettingsView : UserControl
             SaveSettingsButton.IsEnabled = false;
             await _mainWindow.ApplySettingsAsync(_draft);
             ClipFolderBox.Text = _draft.ClipFolder;
-            SettingsStatus.Text = "Settings saved · recording changes apply to the next recording.";
+            SettingsStatus.Text = "Settings saved · some recording changes apply to the next recording.";
             SettingsStatus.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(ColorHelper.FromArgb(255, 174, 182, 188));
             return true;
         }
@@ -737,9 +941,12 @@ public sealed partial class SettingsView : UserControl
 
     internal int GetUnsavedOptionCount()
     {
-        var previousStatus = SettingsStatus.Text;
-        var previousBrush = SettingsStatus.Foreground;
         UpdateDraftAndDirtyState();
+        return CountUnsavedOptions();
+    }
+
+    private int CountUnsavedOptions()
+    {
         var count = 0;
         foreach (var property in typeof(ClipprSettings).GetProperties(BindingFlags.Instance | BindingFlags.Public))
         {
@@ -752,11 +959,6 @@ public sealed partial class SettingsView : UserControl
             _draft.VoiceCommandPhrases.TryGetValue(key, out var current);
             _savedSnapshot.VoiceCommandPhrases.TryGetValue(key, out var saved);
             if (!string.Equals(current, saved, StringComparison.Ordinal)) count++;
-        }
-        if (count == 0)
-        {
-            SettingsStatus.Text = previousStatus;
-            SettingsStatus.Foreground = previousBrush;
         }
         return count;
     }
@@ -810,6 +1012,22 @@ public sealed partial class SettingsView : UserControl
                 Content = ex.Message,
                 CloseButtonText = "Close"
             };
+            await dialog.ShowAsync();
+        }
+    }
+
+    private async void OnOpenOutputFolderClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var folder = Path.GetFullPath(ClipFolderBox.Text.Trim());
+            if (!Directory.Exists(folder)) throw new DirectoryNotFoundException("This folder does not exist yet. Save changes first to create it.");
+            WindowsShellFileActions.OpenWithDefaultApplication(folder);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or System.ComponentModel.Win32Exception or COMException)
+        {
+            var dialog = new ContentDialog { XamlRoot = XamlRoot, Title = "Could not open folder",
+                Content = ex.Message, CloseButtonText = "Close" };
             await dialog.ShowAsync();
         }
     }
