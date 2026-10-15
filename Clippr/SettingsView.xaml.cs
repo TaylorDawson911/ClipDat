@@ -131,7 +131,7 @@ public sealed partial class SettingsView : UserControl
         AddOptions(UnknownGameCombo, ("Other", "Save to Clips/Other"),
             ("Root", "Save directly to Clips"), ("CapturedApplication", "Use captured application name"));
         AddOptions(NotificationStyleCombo, ("Windows", "Windows notifications"),
-            ("ClipDat", "ClipDat slide-in cards"));
+            ("ClipDat", "ClipDat slide-in cards"), ("None", "Off"));
         AddOptions(HotkeyCombo, ("Ctrl+Shift+F10", "Ctrl + Shift + F10"),
             ("Ctrl+Alt+F10", "Ctrl + Alt + F10"), ("Ctrl+Shift+F9", "Ctrl + Shift + F9"));
         if (!HotkeyCombo.Items.OfType<ComboBoxItem>().Any(item => Equals(item.Tag, _draft.Hotkey)))
@@ -160,6 +160,8 @@ public sealed partial class SettingsView : UserControl
         SelectTag(NotificationStyleCombo, _draft.NotificationStyle);
         SelectTag(HotkeyCombo, _draft.Hotkey);
         SelectTag(ScreenshotFormatCombo, _draft.ScreenshotFormat);
+        ScreenshotsEnabledCheck.IsOn = _draft.ScreenshotsEnabled;
+        QuickShareEnabledCheck.IsOn = _draft.QuickShareEnabled;
         SelectTag(ScreenshotHotkeyCombo, _draft.ScreenshotHotkey);
         SelectTag(VoiceConfidenceCombo, _draft.VoiceConfidenceThreshold);
         VoiceCommandsCheck.IsOn = _draft.VoiceCommandsEnabled;
@@ -214,6 +216,8 @@ public sealed partial class SettingsView : UserControl
         GameDetectionCombo.SelectionChanged += OnSettingChanged;
         UnknownGameCombo.SelectionChanged += OnSettingChanged;
         OrganiseClipsCheck.Toggled += OnSettingChanged;
+        ScreenshotsEnabledCheck.Toggled += OnSettingChanged;
+        QuickShareEnabledCheck.Toggled += OnSettingChanged;
         ScreenshotFormatCombo.SelectionChanged += OnSettingChanged;
         ScreenshotHotkeyCombo.SelectionChanged += OnSettingChanged;
         VoiceConfidenceCombo.SelectionChanged += OnSettingChanged;
@@ -737,6 +741,8 @@ public sealed partial class SettingsView : UserControl
         _draft.NotificationStyle = GetTag(NotificationStyleCombo);
         _draft.Hotkey = GetTag(HotkeyCombo);
         _draft.ScreenshotFormat = GetTag(ScreenshotFormatCombo);
+        _draft.ScreenshotsEnabled = ScreenshotsEnabledCheck.IsOn;
+        _draft.QuickShareEnabled = QuickShareEnabledCheck.IsOn;
         _draft.ScreenshotJpegQuality = double.IsFinite(ScreenshotJpegQualityBox.Value)
             ? (int)Math.Round(ScreenshotJpegQualityBox.Value) : 90;
         _draft.CopyScreenshotToClipboard = CopyScreenshotCheck.IsOn;

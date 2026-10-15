@@ -1,0 +1,18 @@
+{
+  "clipLengthSeconds": 60,
+  "qualityPreset": "High",
+  "videoFormat": "mkv",
+  "desktopAudioEnabled": true,
+  "microphoneAudioEnabled": false,
+  "organizeClipsByGame": true,
+  "screenshotsEnabled": true,
+  "quickShareEnabled": false,
+  "voiceCommandsEnabled": false,
+  "notificationStyle": "Windows",
+  "saveNotificationSound": true,
+  "startWithWindows": false,
+  "minimizeToTrayOnClose": true,
+  "hotkey": "Ctrl+Shift+F10",
+  "screenshotFormat": "png",
+  "screenshotJpegQuality": 90
+}

@@ -33,7 +33,10 @@ if ($SigningThumbprint) {
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $output = [IO.Path]::GetFullPath($OutputDirectory)
-$buildOutput = Join-Path $env:TEMP "ClipDat-MSIX-$version-$PID"
+$tempRoot = [IO.Path]::GetFullPath($env:TEMP).TrimEnd('\')
+$buildOutput = [IO.Path]::GetFullPath((Join-Path $tempRoot "ClipDat-MSIX-$version-$PID"))
+if (-not $buildOutput.StartsWith($tempRoot + '\', [StringComparison]::OrdinalIgnoreCase) -or
+    [IO.Path]::GetFileName($buildOutput) -ne "ClipDat-MSIX-$version-$PID") { throw 'Unsafe temporary MSIX build path.' }
 Remove-Item -LiteralPath $buildOutput -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $buildOutput | Out-Null
 New-Item -ItemType Directory -Force -Path $output | Out-Null

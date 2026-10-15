@@ -1,5 +1,7 @@
 # ClipDat Windows release packaging
 
+Extract the release Setup ZIP and run `Start-Setup.ps1` for the Express, Minimal, or Custom first-run wizard. It applies supported ClipDat settings and invokes the MSIX install helper. To validate a downloaded package without installing it, run `installer/scripts/Test-Installer.ps1` from the source repository.
+
 ClipDat is already a Windows App SDK packaged WinUI 3 application. Releases stay MSIX packages. Windows owns the package install location, per-user registration, Start Menu entry, Installed Apps entry, package file cleanup, and update identity. A WiX MSI wrapper would duplicate those responsibilities and conflict with the existing package identity.
 
 ## Supported release target

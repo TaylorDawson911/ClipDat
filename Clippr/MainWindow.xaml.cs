@@ -217,6 +217,7 @@ namespace Clippr
             Closed += OnWindowClosed;
             AppWindow.Closing += OnAppWindowClosing;
             if (_settings.VoiceCommandsEnabled) _ = ConfigureVoiceCommandsAsync(_settings);
+            if (_settings.StartWithWindows) _ = EnableSavedStartupPreferenceAsync();
             UpdateSettingsPosition();
         }
 
@@ -587,6 +588,9 @@ namespace Clippr
             var wasScreenCapturing = _activeSource == CaptureSource.Screen;
             await ApplyStartupPreferenceAsync(settings.StartWithWindows);
             _settings = settings;
+            ShareClipMenuItem.Visibility = settings.QuickShareEnabled && _lastReplayPath is not null &&
+                string.Equals(_lastReplayPath, _lastSavedFilePath, StringComparison.OrdinalIgnoreCase)
+                ? Visibility.Visible : Visibility.Collapsed;
             ++_gameSampleGeneration;
             _gameTimeline.Clear();
             ApplyPreviewDetailMode();
@@ -671,6 +675,12 @@ namespace Clippr
                 startupTask.Disable();
         }
 
+        private async Task EnableSavedStartupPreferenceAsync()
+        {
+            try { await ApplyStartupPreferenceAsync(true); }
+            catch (Exception ex) { ReplayMessage.Text = $"Windows startup is unavailable: {ex.Message}"; }
+        }
+
         private void ConfigureNativeHotkey()
         {
             if (_capture == IntPtr.Zero) return;
@@ -690,8 +700,10 @@ namespace Clippr
             };
             var screenshotResult = NativeCapture.ClipprConfigureScreenshot(_capture,
                 Path.Combine(_clipFolder, "Screenshots"), _settings.ScreenshotFormat == "jpg" ? 1 : 0,
-                (uint)_settings.ScreenshotJpegQuality, screenshotModifiers, screenshotKey);
+                (uint)_settings.ScreenshotJpegQuality, screenshotModifiers,
+                _settings.ScreenshotsEnabled ? screenshotKey : 0);
             if (screenshotResult < 0) ReplayMessage.Text = $"Could not update screenshot hotkey · 0x{screenshotResult:X8}";
+            ScreenshotButton.IsEnabled = _settings.ScreenshotsEnabled;
             _screenshotsCompletedSeen = NativeCapture.ClipprGetScreenshotCount(_capture);
         }
 
@@ -1116,6 +1128,7 @@ namespace Clippr
 
         private async Task TakeScreenshotAsync()
         {
+            if (!_settings.ScreenshotsEnabled) return;
             ScreenshotButton.IsEnabled = false;
             await _captureGate.WaitAsync();
             try
@@ -1144,7 +1157,7 @@ namespace Clippr
                 await CopyScreenshotIfEnabledAsync(path);
             }
             catch (Exception ex) { LocalReliabilityLog.Error("screenshot", ex.HResult); ShowInfoError($"Could not save screenshot: {ex.Message}"); }
-            finally { _captureGate.Release(); ScreenshotButton.IsEnabled = true; }
+            finally { _captureGate.Release(); ScreenshotButton.IsEnabled = _settings.ScreenshotsEnabled; }
         }
 
         private void OnScreenshotSaved(string path)
@@ -1179,7 +1192,8 @@ namespace Clippr
         {
             _lastSavedFilePath = Path.GetFullPath(path);
             SavedFileActionsButton.Visibility = Visibility.Visible;
-            ShareClipMenuItem.Visibility = string.Equals(_lastSavedFilePath, _lastReplayPath, StringComparison.OrdinalIgnoreCase)
+            ShareClipMenuItem.Visibility = _settings.QuickShareEnabled &&
+                string.Equals(_lastSavedFilePath, _lastReplayPath, StringComparison.OrdinalIgnoreCase)
                 ? Visibility.Visible : Visibility.Collapsed;
         }
 
@@ -1226,6 +1240,7 @@ namespace Clippr
 
         private async void OnShareClipClick(object sender, RoutedEventArgs e)
         {
+            if (!_settings.QuickShareEnabled) return;
             string clipPath;
             try
             {
@@ -1562,6 +1577,7 @@ namespace Clippr
 
         private void ShowNotification(ClipNotificationKind kind, string title, string message, string? style = null)
         {
+            if ((style ?? _settings.NotificationStyle) == "None") return;
             try
             {
                 var now = DateTime.UtcNow;

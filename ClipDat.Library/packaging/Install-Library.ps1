@@ -1,12 +1,20 @@
 param(
     [switch]$DesktopShortcut,
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [string]$PayloadPath
 )
 
 $ErrorActionPreference = 'Stop'
 $project = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\ClipDat.Library.csproj'))
 $buildOutput = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64'))
 $publish = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\bin\x64\Release\selfcontained-publish'))
+if (-not $PayloadPath -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'payload\ClipDat.Library.exe') -PathType Leaf)) {
+    $PayloadPath = Join-Path $PSScriptRoot 'payload'
+}
+if ($PayloadPath) {
+    $publish = (Resolve-Path -LiteralPath $PayloadPath).Path
+    $SkipBuild = $true
+}
 $programs = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'Programs'))
 $install = [IO.Path]::GetFullPath((Join-Path $programs 'ClipDat Library'))
 if (-not $install.StartsWith($programs + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
@@ -20,6 +28,12 @@ if (-not $SkipBuild) {
 $executable = Join-Path $publish 'ClipDat.Library.exe'
 if (-not (Test-Path -LiteralPath $executable)) { throw "Publish output is missing: $executable" }
 foreach ($resource in @('App.xbf', 'LibraryWindow.xbf', 'ClipDat.Library.pri')) {
+    if ($PayloadPath) {
+        if (-not (Test-Path -LiteralPath (Join-Path $publish $resource) -PathType Leaf)) {
+            throw "Library package is missing: $resource"
+        }
+        continue
+    }
     $source = Join-Path $buildOutput $resource
     if (-not (Test-Path -LiteralPath $source)) { throw "Build output is missing: $source" }
     Copy-Item -LiteralPath $source -Destination $publish -Force
@@ -30,7 +44,10 @@ Get-Process -Name 'ClipDat.Library' -ErrorAction SilentlyContinue | ForEach-Obje
     if (-not $_.WaitForExit(10000)) { throw 'Close Clip Library before installing an update.' }
 }
 
-if (Test-Path -LiteralPath $install) { Remove-Item -LiteralPath $install -Recurse -Force }
+if (Test-Path -LiteralPath $install) {
+    if ((Get-Item -LiteralPath $install -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Library install directory is a linked folder; refusing replacement.' }
+    Remove-Item -LiteralPath $install -Recurse -Force
+}
 New-Item -ItemType Directory -Path $install -Force | Out-Null
 Copy-Item -Path (Join-Path $publish '*') -Destination $install -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Uninstall-Library.ps1') -Destination $install -Force

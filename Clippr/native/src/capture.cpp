@@ -1068,7 +1068,7 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
     long ConfigureScreenshot(const wchar_t* folder, bool jpeg, uint32_t quality,
                              UINT modifiers, UINT virtual_key) noexcept {
         constexpr UINT supported = MOD_ALT | MOD_CONTROL | MOD_SHIFT | MOD_WIN;
-        if (!folder || !*folder || quality < 1 || quality > 100 || !virtual_key ||
+        if (!folder || !*folder || quality < 1 || quality > 100 ||
             (modifiers & ~supported) || !(modifiers & (MOD_CONTROL | MOD_ALT | MOD_WIN))) return E_INVALIDARG;
         try {
             { std::scoped_lock lock(screenshot_config_mutex); screenshot_folder = folder;
@@ -1095,7 +1095,8 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
             else
                 hotkey_error = HRESULT_FROM_WIN32(GetLastError());
             std::scoped_lock lock(screenshot_config_mutex);
-            RegisterHotKey(nullptr, 2, screenshot_modifiers | MOD_NOREPEAT, screenshot_virtual_key);
+            if (screenshot_virtual_key)
+                RegisterHotKey(nullptr, 2, screenshot_modifiers | MOD_NOREPEAT, screenshot_virtual_key);
         };
         register_hotkey();
         while (GetMessageW(&message, nullptr, 0, 0) > 0) {

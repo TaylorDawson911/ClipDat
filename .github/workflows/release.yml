@@ -1,0 +1,125 @@
+name: ClipDat release
+
+on:
+  push:
+    tags: ['v[0-9]*.[0-9]*.[0-9]*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      approved: ${{ steps.version.outputs.approved }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - id: version
+        shell: pwsh
+        env:
+          RELEASE_APPROVED: ${{ vars.CLIPDAT_RELEASE_APPROVED }}
+        run: |
+          [xml]$manifest = Get-Content Clippr/Package.appxmanifest -Raw
+          $version = [version]$manifest.Package.Identity.Version
+          $tagVersion = "v$($version.Major).$($version.Minor).$($version.Build)"
+          if ('${{ github.ref_type }}' -eq 'tag' -and '${{ github.ref_name }}' -ne $tagVersion) {
+            throw "Tag must be $tagVersion for this manifest."
+          }
+          "version=$tagVersion" >> $env:GITHUB_OUTPUT
+          "approved=$($env:RELEASE_APPROVED -eq 'true' -and '${{ github.ref_type }}' -eq 'tag')".ToLowerInvariant() >> $env:GITHUB_OUTPUT
+      - name: Install pinned native dependencies
+        shell: pwsh
+        run: |
+          git clone --no-checkout https://github.com/microsoft/vcpkg.git "$env:RUNNER_TEMP\vcpkg"
+          git -C "$env:RUNNER_TEMP\vcpkg" checkout e456309491fd875487bf02b8a0dca76c1b1b00cc
+          & "$env:RUNNER_TEMP\vcpkg\bootstrap-vcpkg.bat" -disableMetrics
+          if ($LASTEXITCODE -ne 0) { throw 'vcpkg bootstrap failed.' }
+          & "$env:RUNNER_TEMP\vcpkg\vcpkg.exe" install --triplet x64-windows "--x-manifest-root=$pwd\Clippr" "--x-install-root=$pwd\Clippr\native\vcpkg_installed"
+          if ($LASTEXITCODE -ne 0) { throw 'Native dependency restore failed.' }
+      - name: Restore managed dependencies
+        shell: pwsh
+        run: |
+          dotnet restore Clippr/Clippr.csproj -p:Platform=x64
+          if ($LASTEXITCODE -ne 0) { throw 'Main app restore failed.' }
+          dotnet restore ClipDat.Library/ClipDat.Library.csproj -p:Platform=x64
+          if ($LASTEXITCODE -ne 0) { throw 'Library restore failed.' }
+      - name: Verify focused tests
+        shell: pwsh
+        run: |
+          dotnet run --project Clippr.GameTests/Clippr.GameTests.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { throw 'Game organisation tests failed.' }
+          dotnet run --project Clippr.ShareTests/Clippr.ShareTests.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { throw 'Share tests failed.' }
+      - name: Import release signing certificate
+        if: steps.version.outputs.approved == 'true'
+        id: signing
+        shell: pwsh
+        env:
+          PFX_BASE64: ${{ secrets.CLIPDAT_SIGNING_PFX_BASE64 }}
+          PFX_PASSWORD: ${{ secrets.CLIPDAT_SIGNING_PFX_PASSWORD }}
+        run: |
+          if (-not $env:PFX_BASE64 -or -not $env:PFX_PASSWORD) { throw 'Release signing secrets are missing.' }
+          $path = Join-Path $env:RUNNER_TEMP 'clipdat-signing.pfx'
+          try {
+            [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:PFX_BASE64))
+            $password = ConvertTo-SecureString $env:PFX_PASSWORD -AsPlainText -Force
+            $cert = Import-PfxCertificate -FilePath $path -CertStoreLocation Cert:\CurrentUser\My -Password $password
+            if (-not $cert) { throw 'Signing certificate import failed.' }
+            "thumbprint=$($cert.Thumbprint)" >> $env:GITHUB_OUTPUT
+          } finally {
+            Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+          }
+      - name: Build main package
+        shell: pwsh
+        run: |
+          if ('${{ steps.version.outputs.approved }}' -eq 'true') {
+            & Clippr/packaging/Build-Release.ps1 -SigningThumbprint '${{ steps.signing.outputs.thumbprint }}' -OutputDirectory installer/release
+          } else {
+            & Clippr/packaging/Build-Release.ps1 -Unsigned -OutputDirectory installer/release
+          }
+      - name: Build optional Clip Library
+        shell: pwsh
+        run: '& installer/scripts/Build-Library.ps1 -OutputDirectory installer/release'
+      - name: Assemble and validate packages
+        shell: pwsh
+        run: |
+          $trusted = '${{ steps.version.outputs.approved }}' -eq 'true'
+          & installer/scripts/Assemble-Release.ps1 -ReleaseDirectory installer/release -RequireTrustedSignature:$trusted
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ClipDat-release-${{ steps.version.outputs.version }}
+          path: installer/release/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: needs.build.outputs.approved == 'true'
+    runs-on: windows-2022
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: ClipDat-release-${{ needs.build.outputs.version }}
+          path: release
+      - name: Publish verified assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          & installer/scripts/Test-Installer.ps1 -ReleaseDirectory release -RequireTrustedSignature
+          $main = @(Get-ChildItem release -Filter "ClipDat-Setup-${{ needs.build.outputs.version }}.zip" -File)
+          $library = @(Get-ChildItem release -Filter 'ClipDat-Library-v*.zip' -File)
+          if ($main.Count -ne 1 -or $library.Count -ne 1) { throw 'Release assets are incomplete.' }
+          & gh release create '${{ github.ref_name }}' $main[0].FullName $library[0].FullName 'release/SHA256SUMS.txt' --verify-tag --notes-file '.github/RELEASE_NOTES.md' --title "ClipDat ${{ github.ref_name }}"
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub release publication failed.' }

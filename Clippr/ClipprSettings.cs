@@ -55,6 +55,8 @@ public sealed class ClipprSettings
     public string FilenameFormat { get; set; } = "ClipDat";
     public string Hotkey { get; set; } = "Ctrl+Shift+F10";
     public string ScreenshotHotkey { get; set; } = "Ctrl+Alt+F10";
+    public bool ScreenshotsEnabled { get; set; } = true;
+    public bool QuickShareEnabled { get; set; } = true;
     public string ScreenshotFormat { get; set; } = "png";
     public int ScreenshotJpegQuality { get; set; } = 90;
     public bool CopyScreenshotToClipboard { get; set; }
@@ -181,7 +183,7 @@ public sealed class ClipprSettings
             .ToDictionary(group => group.Key, group => group.Last().Value, StringComparer.OrdinalIgnoreCase);
         if (VideoFormat is not ("mp4" or "mkv")) VideoFormat = "mp4";
         if (FilenameFormat is not ("ClipDat" or "Timestamp" or "Application")) FilenameFormat = "ClipDat";
-        if (NotificationStyle is not ("Windows" or "ClipDat")) NotificationStyle = "Windows";
+        if (NotificationStyle is not ("Windows" or "ClipDat" or "None")) NotificationStyle = "Windows";
         if (Encoder is not "MediaFoundationHardware") Encoder = "MediaFoundationHardware";
         if (!ClipHotkey.TryParse(Hotkey, out _, out _)) Hotkey = "Ctrl+Shift+F10";
         if (ScreenshotHotkey is not ("Ctrl+Alt+F10" or "Ctrl+Alt+F9" or "Ctrl+Shift+F8")) ScreenshotHotkey = "Ctrl+Alt+F10";
@@ -238,7 +240,7 @@ public sealed class ClipprSettings
         if (Encoder is not "MediaFoundationHardware") return "Choose the supported Media Foundation hardware encoder.";
         if (VideoFormat is not ("mp4" or "mkv")) return "Choose MP4 or MKV.";
         if (FilenameFormat is not ("ClipDat" or "Timestamp" or "Application")) return "Choose a supported filename format.";
-        if (NotificationStyle is not ("Windows" or "ClipDat")) return "Choose a notification style.";
+        if (NotificationStyle is not ("Windows" or "ClipDat" or "None")) return "Choose a notification style.";
         if (!ClipHotkey.TryParse(Hotkey, out _, out _)) return "Choose Ctrl + Alt/Shift + F1–F12 for clipping.";
         if (ScreenshotHotkey is not ("Ctrl+Alt+F10" or "Ctrl+Alt+F9" or "Ctrl+Shift+F8")) return "Choose a supported screenshot hotkey.";
         if (Hotkey == ScreenshotHotkey) return "Clipping and screenshot hotkeys must be different.";

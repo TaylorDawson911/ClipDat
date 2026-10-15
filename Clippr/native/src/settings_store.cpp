@@ -32,7 +32,9 @@ namespace
         L"minimizeToTrayOnClose", L"keepCaptureRunningWhileHidden",
         L"minimumFreeDiskSpaceGb", L"voiceCommandsEnabled",
         L"voiceWakePhrase", L"voiceConfidenceThreshold", L"voiceCooldownSeconds",
-        L"voiceCommandPhrases", L"advancedModeEnabled", L"showPreviewDiagnostics"
+        L"voiceCommandPhrases", L"advancedModeEnabled", L"showPreviewDiagnostics",
+        L"organizeClipsByGame", L"gameDetectionMethod", L"unknownGameDestination",
+        L"customGameMappings", L"screenshotsEnabled", L"quickShareEnabled"
     };
 
     std::filesystem::path KnownFolderPath(REFKNOWNFOLDERID folder, DWORD flags)
@@ -181,7 +183,7 @@ extern "C" __declspec(dllexport) HRESULT __cdecl ClipprSaveSettingsJson(wchar_t 
             if (requested.HasKey(propertyName)) merged.Insert(propertyName, requested.Lookup(propertyName));
         }
 
-        constexpr int currentSchema = 1;
+        constexpr int currentSchema = 2;
         int schema = currentSchema;
         try
         {

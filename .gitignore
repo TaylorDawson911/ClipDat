@@ -27,6 +27,11 @@ Clippr/native/vcpkg_installed/
 
 # Built release packages/dependencies (keep release scripts and documentation)
 Clippr/packaging/release/
+installer/release/
+*.pfx
+*.p12
+*.pem
+*.key
 
 # Local recordings and temporary files
 *.tmp

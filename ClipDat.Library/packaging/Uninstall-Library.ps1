@@ -16,7 +16,10 @@ Remove-Item -LiteralPath $startMenuLink -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $desktopLink -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath 'HKCU:\Software\ClipDat\Library' -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\ClipDat.Library' -Recurse -Force -ErrorAction SilentlyContinue
-if (Test-Path -LiteralPath $install) { Remove-Item -LiteralPath $install -Recurse -Force }
+if (Test-Path -LiteralPath $install) {
+    if ((Get-Item -LiteralPath $install -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Library install directory is a linked folder; refusing removal.' }
+    Remove-Item -LiteralPath $install -Recurse -Force
+}
 if ($RemoveLibrarySettings) {
     $settings = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'ClipDat Library'))
     $localRoot = [IO.Path]::GetFullPath($env:LOCALAPPDATA)

@@ -2,6 +2,8 @@
 
 ClipDat includes a Clip Library page in the main window for saved clips and screenshots. The older [standalone ClipDat Library](ClipDat.Library/README.md) remains available as a separate optional application, but the main app no longer launches it. ClipDat's **Quick Share** settings page explains the current direct-sharing status; no public link is offered without a verified secure endpoint.
 
+**Downloads and setup:** release builds are published, once signing and installation checks are complete, on [GitHub Releases](https://github.com/TaylorDawson911/ClipDat/releases/latest). See the [installer guide](installer/README.md) for first-run modes, signing requirements, and package validation. Source builds alone are not an installed release.
+
 ClipDat is a native Windows clipping and instant-replay desktop application built from the Clippr project. It is designed to keep capture and replay data on the user's PC and to use Windows capture, audio, encoding, and shell APIs.
 
 > **Development status:** This is an active, pre-release project. Some features are implemented but have not been verified on all Windows versions, hardware vendors, or failure conditions. See [Testing and known limitations](#testing-and-known-limitations) before relying on it for important recordings.

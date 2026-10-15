@@ -2,7 +2,10 @@
 param(
     [string] $PackagePath,
     [string] $RuntimePackagePath,
-    [switch] $DesktopShortcut
+    [switch] $DesktopShortcut,
+    [ValidateSet('Express','Minimal','Custom')][string] $Mode = 'Express',
+    [string] $ConfigurationPath,
+    [switch] $ValidateConfigurationOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -11,6 +14,69 @@ $applicationId = 'App'
 $displayName = 'ClipDat'
 $minimumBuild = 17763
 $backupSettings = Join-Path $env:LOCALAPPDATA 'ClipDat\InstallerBackup\settings.json'
+
+function New-FirstRunSettings {
+    $settings = [ordered]@{
+        schemaVersion = 2
+        clipLengthSeconds = 30
+        qualityPreset = 'Standard'
+        videoFormat = 'mp4'
+        desktopAudioEnabled = $true
+        microphoneAudioEnabled = ($Mode -ne 'Minimal')
+        organizeClipsByGame = ($Mode -ne 'Minimal')
+        screenshotsEnabled = ($Mode -ne 'Minimal')
+        quickShareEnabled = ($Mode -ne 'Minimal')
+        voiceCommandsEnabled = $false
+        notificationStyle = if ($Mode -eq 'Minimal') { 'None' } else { 'Windows' }
+        saveNotificationSound = ($Mode -ne 'Minimal')
+        screenshotNotificationSound = $false
+        startWithWindows = $false
+        minimizeToTrayOnClose = $true
+        hotkey = 'Ctrl+Shift+F10'
+        screenshotFormat = 'png'
+        screenshotJpegQuality = 90
+    }
+    if ($Mode -eq 'Custom' -and -not $ConfigurationPath) {
+        throw 'Custom installation requires -ConfigurationPath with the selected first-run settings.'
+    }
+    if ($ConfigurationPath) {
+        $configuration = Get-Content -LiteralPath (Resolve-Path -LiteralPath $ConfigurationPath).Path -Raw | ConvertFrom-Json
+        if (-not $configuration -or $configuration -isnot [pscustomobject]) { throw 'Configuration must be a JSON object.' }
+        $allowed = @('clipLengthSeconds','qualityPreset','videoFormat','desktopAudioEnabled',
+            'microphoneAudioEnabled','organizeClipsByGame','screenshotsEnabled','quickShareEnabled',
+            'voiceCommandsEnabled','notificationStyle','saveNotificationSound','screenshotNotificationSound',
+            'startWithWindows','minimizeToTrayOnClose','hotkey','screenshotFormat','screenshotJpegQuality','clipFolder')
+        foreach ($property in $configuration.PSObject.Properties) {
+            if ($property.Name -cnotin $allowed) { throw "Unsupported installer setting: $($property.Name)" }
+            $settings[$property.Name] = $property.Value
+        }
+    }
+    $clipLength = 0
+    if (-not [int]::TryParse([string]$settings.clipLengthSeconds, [ref]$clipLength) -or
+        $clipLength -lt 1 -or $clipLength -gt 3600) { throw 'Clip length must be 1 to 3600 seconds.' }
+    $settings.clipLengthSeconds = $clipLength
+    if ($settings.qualityPreset -cnotin @('Standard','High')) { throw 'Choose Standard or High quality.' }
+    if ($settings.videoFormat -cnotin @('mp4','mkv')) { throw 'Choose MP4 or MKV.' }
+    if ($settings.notificationStyle -cnotin @('Windows','ClipDat','None')) { throw 'Choose Windows, ClipDat, or None notifications.' }
+    if ($settings.screenshotFormat -cnotin @('png','jpg')) { throw 'Choose PNG or JPEG screenshots.' }
+    $jpegQuality = 0
+    if (-not [int]::TryParse([string]$settings.screenshotJpegQuality, [ref]$jpegQuality) -or
+        $jpegQuality -lt 1 -or $jpegQuality -gt 100) { throw 'JPEG quality must be 1 to 100.' }
+    $settings.screenshotJpegQuality = $jpegQuality
+    if ($settings.hotkey -notmatch '^Ctrl\+(Alt|Shift)\+F([1-9]|1[0-2])$') { throw 'Choose a supported Ctrl+Alt/Shift+F1-F12 hotkey.' }
+    foreach ($key in @('desktopAudioEnabled','microphoneAudioEnabled','organizeClipsByGame','screenshotsEnabled',
+        'quickShareEnabled','voiceCommandsEnabled','saveNotificationSound','screenshotNotificationSound',
+        'startWithWindows','minimizeToTrayOnClose')) {
+        if ($settings[$key] -isnot [bool]) { throw "$key must be true or false." }
+    }
+    if ($settings.Contains('clipFolder')) {
+        if ($settings.clipFolder -isnot [string] -or -not [IO.Path]::IsPathRooted($settings.clipFolder)) {
+            throw 'The clips folder must be an absolute path.'
+        }
+        $settings.clipFolder = [IO.Path]::GetFullPath($settings.clipFolder)
+    }
+    return ($settings | ConvertTo-Json -Depth 4)
+}
 
 function Resolve-PackagePath([string] $Path, [string] $Pattern) {
     if ($Path) {
@@ -60,6 +126,8 @@ function Stop-InstalledClipDat($InstalledPackage) {
     }
 }
 
+$firstRunJson = New-FirstRunSettings
+if ($ValidateConfigurationOnly) { Write-Output $firstRunJson; return }
 Assert-SupportedSystem
 $package = Resolve-PackagePath $PackagePath 'ClipDat_*_x64.msix'
 $runtime = $null
@@ -91,6 +159,13 @@ $settingsPath = Join-Path $env:LOCALAPPDATA "Packages\$($installed.PackageFamily
 if ((Test-Path -LiteralPath $backupSettings -PathType Leaf) -and -not (Test-Path -LiteralPath $settingsPath -PathType Leaf)) {
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $settingsPath) | Out-Null
     Copy-Item -LiteralPath $backupSettings -Destination $settingsPath
+}
+if (-not (Test-Path -LiteralPath $settingsPath -PathType Leaf)) {
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $settingsPath) | Out-Null
+    [IO.File]::WriteAllText($settingsPath, $firstRunJson, (New-Object System.Text.UTF8Encoding($false)))
+    Write-Host "Applied $Mode first-run settings. They can be changed in ClipDat Settings."
+} else {
+    Write-Host 'Existing ClipDat settings were preserved; installer presets were not applied.'
 }
 
 if ($DesktopShortcut) {
