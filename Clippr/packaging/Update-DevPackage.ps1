@@ -45,7 +45,7 @@ if (Get-Process -Name Clippr -ErrorAction SilentlyContinue) {
 
 $required = @(
     'Clippr.exe', 'Clippr.dll', 'Clippr.deps.json', 'Clippr.runtimeconfig.json',
-    'ClipprCapture.dll', 'resources.pri', 'App.xbf', 'MainWindow.xbf', 'SettingsView.xbf'
+    'ClipprCapture.dll', 'resources.pri', 'App.xbf', 'MainWindow.xbf', 'SettingsView.xbf', 'LibraryView.xbf'
 )
 foreach ($name in $required) {
     $source = Join-Path $output $name

@@ -97,6 +97,7 @@ namespace Clippr
         private string _clipFormat = "mp4";
         private int _clipSequence;
         private SettingsView? _settingsView;
+        private LibraryView? _libraryView;
         private readonly TranslateTransform _settingsHostTranslate = new() { Y = 14 };
         private VoiceCommandService? _voiceCommandService;
         private string _voiceStatus = "Voice commands are off.";
@@ -300,7 +301,7 @@ namespace Clippr
 
         private void OnSettingsClick(object sender, RoutedEventArgs e)
         {
-            if (_settingsView is not null || _settingsTransitioning) return;
+            if (_settingsView is not null || _libraryView is not null || _settingsTransitioning) return;
             try
             {
                 _settingsView = new SettingsView(this, _settings);
@@ -446,7 +447,7 @@ namespace Clippr
         {
             if (_settingsTransitioning) return;
             if (_settingsView is not null && !await _settingsView.ConfirmLeaveAsync(exiting: false)) return;
-            if (_settingsView is null) return;
+            if (_settingsView is null && _libraryView is null) return;
             _settingsTransitioning = true;
             await AnimateSettingsCloseAsync();
         }
@@ -468,6 +469,8 @@ namespace Clippr
             CaptureToolbar.Visibility = Visibility.Visible;
             CaptureContent.Visibility = Visibility.Visible;
             await AnimateSettingsSurfaceAsync(showSettings: false);
+            _libraryView?.Dispose();
+            _libraryView = null;
             SettingsHost.Visibility = Visibility.Collapsed;
             SettingsHost.Children.Clear();
             _settingsView = null;
@@ -558,7 +561,7 @@ namespace Clippr
 
         private void OnSettingsHostKeyDown(object sender, KeyRoutedEventArgs e)
         {
-            if (e.Key != VirtualKey.Escape || _settingsView is null) return;
+            if (e.Key != VirtualKey.Escape || (_settingsView is null && _libraryView is null)) return;
             OnBackToCaptureClick(sender, new RoutedEventArgs());
             e.Handled = true;
         }
@@ -1256,11 +1259,49 @@ namespace Clippr
             { ShowInfoError($"Could not open clips folder: {ex.Message}"); }
         }
 
-        private void OnOpenLibraryClick(object sender, RoutedEventArgs e)
+        private async void OnOpenLibraryClick(object sender, RoutedEventArgs e)
         {
-            try { LibraryLauncher.Open(_clipFolder); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or COMException or System.ComponentModel.Win32Exception)
-            { ShowInfoError(ex.Message); }
+            await OpenLibraryAsync();
+        }
+
+        internal async Task OpenLibraryAsync()
+        {
+            if (_libraryView is not null || _settingsTransitioning) return;
+            if (_settingsView is not null)
+            {
+                if (!await _settingsView.ConfirmLeaveAsync(exiting: false)) return;
+                _settingsTransitioning = true;
+                await AnimateSettingsCloseAsync();
+            }
+            try
+            {
+                _libraryView = new LibraryView(this, _clipFolder);
+                SettingsHost.Children.Add(_libraryView);
+                SettingsHost.Visibility = Visibility.Visible;
+                BackToCaptureButton.Visibility = Visibility.Visible;
+                SettingsButton.Visibility = Visibility.Collapsed;
+                WindowTitleText.Text = "Clip Library";
+                WindowTitleText.Margin = new Thickness(8, 0, 0, 0);
+                _settingsTransitioning = true;
+                BackToCaptureButton.Focus(FocusState.Programmatic);
+                await AnimateSettingsOpenAsync();
+            }
+            catch (Exception ex)
+            {
+                _libraryView?.Dispose();
+                _libraryView = null;
+                SettingsHost.Children.Clear();
+                SettingsHost.Visibility = Visibility.Collapsed;
+                BackToCaptureButton.Visibility = Visibility.Collapsed;
+                SettingsButton.Visibility = Visibility.Visible;
+                WindowTitleText.Text = "ClipDat";
+                WindowTitleText.Margin = new Thickness(16, 0, 0, 0);
+                CaptureToolbar.Visibility = Visibility.Visible;
+                CaptureContent.Visibility = Visibility.Visible;
+                _settingsTransitioning = false;
+                LocalReliabilityLog.Error("library-open", ex.HResult, ex.Message);
+                ShowInfoError($"Could not open Clip Library: {ex.Message}");
+            }
         }
 
         private static string FormatScreenshotError(int error) => error switch
@@ -2346,6 +2387,8 @@ namespace Clippr
         private async void OnWindowClosed(object sender, WindowEventArgs e)
         {
             _closing = true;
+            _libraryView?.Dispose();
+            _libraryView = null;
             if (_voiceCommandService is not null)
             {
                 await _voiceCommandService.DisposeAsync();

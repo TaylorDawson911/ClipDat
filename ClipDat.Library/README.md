@@ -1,10 +1,10 @@
 # ClipDat Library
 
-ClipDat Library is an optional WinUI 3 application with its own executable, installation entry, Start Menu shortcut, metadata store, and uninstaller. ClipDat Core keeps recording when the Library is absent. Save a clip in Core, then open the Library from Core's preview, Quick Share settings, tray menu, or the Library's Start Menu shortcut.
+ClipDat Library is an older optional standalone WinUI 3 application with its own executable, installation entry, Start Menu shortcut, metadata store, and uninstaller. ClipDat now includes the library in its main window; the main app's Clip Library button, Quick Share settings, and tray menu open that page instead of this separate application. This standalone app can still be launched from its Start Menu shortcut if installed.
 
 ## Implemented
 
-- Finds MP4/MKV/MOV clips and PNG/JPEG screenshots in the configured clips folder and its `Screenshots` subfolder. Core passes its current folder at launch; the Library also reads Core's packaged settings on first standalone launch or lets the user choose a folder.
+- Finds MP4/MKV/MOV clips and PNG/JPEG screenshots in the configured clips folder and its `Screenshots` subfolder. The standalone app reads Core's packaged settings on first launch or lets the user choose a folder.
 - Scans files off the UI thread and uses a debounced filesystem watcher to update the list. The grid virtualizes its cards; thumbnails load when cards appear and the in-memory cache has a 160-item limit. Windows Shell thumbnails are used for images and supported videos. MKV uses a video icon because Shell thumbnail generation is inconsistent across machines.
 - Searches file names, descriptions, and tags. Filters clips, screenshots, and favourites. Sorts by date, name, or file size.
 - Previews selected files using the native media player or image viewer. Double-click opens a file in its default Windows application. File actions support rename, copy file, copy path, and show in folder.

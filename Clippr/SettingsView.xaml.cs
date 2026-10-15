@@ -1034,18 +1034,7 @@ public sealed partial class SettingsView : UserControl
 
     private async void OnOpenClipLibraryClick(object sender, RoutedEventArgs e)
     {
-        try { LibraryLauncher.Open(_savedSnapshot.ClipFolder); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or System.ComponentModel.Win32Exception or COMException)
-        {
-            var dialog = new ContentDialog
-            {
-                XamlRoot = XamlRoot,
-                Title = "Could not open Clip Library",
-                Content = ex.Message,
-                CloseButtonText = "Close"
-            };
-            await dialog.ShowAsync();
-        }
+        await _mainWindow.OpenLibraryAsync();
     }
 
     private void ConfigureFeedback()
