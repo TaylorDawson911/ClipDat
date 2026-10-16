@@ -24,6 +24,7 @@
 
 #include <winrt/base.h>
 #include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Foundation.Metadata.h>
 #include <winrt/Windows.Graphics.h>
 #include <winrt/Windows.Graphics.Capture.h>
 #include <winrt/Windows.Graphics.DirectX.h>
@@ -490,10 +491,26 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
     void StartItem(wgc::GraphicsCaptureItem const& new_item, HWND window) {
         auto size = new_item.Size();
         if (size.Width <= 0 || size.Height <= 0) winrt::throw_hresult(E_FAIL);
+        if (winrt::Windows::Foundation::Metadata::ApiInformation::IsTypePresent(
+                L"Windows.Graphics.Capture.GraphicsCaptureAccess")) {
+            static std::once_flag borderless_access_request;
+            std::call_once(borderless_access_request, [] {
+                try {
+                    (void)wgc::GraphicsCaptureAccess::RequestAccessAsync(
+                        wgc::GraphicsCaptureAccessKind::Borderless).get();
+                } catch (...) {
+                    // Capture continues with the Windows border if access is unavailable.
+                }
+            });
+        }
         auto new_pool = wgc::Direct3D11CaptureFramePool::CreateFreeThreaded(
             winrt_device, winrt::Windows::Graphics::DirectX::DirectXPixelFormat::B8G8R8A8UIntNormalized,
             2, size);
         auto new_session = new_pool.CreateCaptureSession(new_item);
+        if (winrt::Windows::Foundation::Metadata::ApiInformation::IsPropertyPresent(
+                L"Windows.Graphics.Capture.GraphicsCaptureSession", L"IsBorderRequired")) {
+            new_session.IsBorderRequired(false);
+        }
         auto weak = weak_from_this();
         auto new_arrived = new_pool.FrameArrived([weak](auto const& source, auto const&) {
             if (auto self = weak.lock()) self->OnFrame(source);
