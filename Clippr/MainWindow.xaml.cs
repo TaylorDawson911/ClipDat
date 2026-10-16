@@ -20,6 +20,7 @@ using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.UI;
+using Microsoft.Win32;
 using Windows.Data.Xml.Dom;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
@@ -690,6 +691,15 @@ namespace Clippr
 
         private static async Task ApplyStartupPreferenceAsync(bool enabled)
         {
+            if (!PackageIdentity.IsPackaged)
+            {
+                using var runKey = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run");
+                if (runKey is null) throw new InvalidOperationException("Windows startup settings are unavailable.");
+                if (enabled) runKey.SetValue("ClipDat", $"\"{Environment.ProcessPath}\"");
+                else runKey.DeleteValue("ClipDat", throwOnMissingValue: false);
+                return;
+            }
+
             var startupTask = await Windows.ApplicationModel.StartupTask.GetAsync("ClipprStartupTask");
             if (enabled)
             {

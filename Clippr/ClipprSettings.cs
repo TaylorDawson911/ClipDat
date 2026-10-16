@@ -117,6 +117,7 @@ public sealed class ClipprSettings
 
     private static ClipprSettings? LoadLegacyLocalSettings()
     {
+        if (!PackageIdentity.IsPackaged) return null;
         var values = ApplicationData.Current.LocalSettings.Values;
         if (!values.ContainsKey("ClipFolder") && !values.ContainsKey("CaptureMode") &&
             !values.ContainsKey("ReplaySeconds") && !values.ContainsKey("ClippingHotkey")) return null;

@@ -13,6 +13,16 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- Keep the MSIX build intact; the EXE installer publishes an unpackaged copy. -->
+  <PropertyGroup Condition="'$(ClipDatUnpackaged)' == 'true'">
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <AppxPackage>false</AppxPackage>
+    <GenerateAppxPackageOnBuild>false</GenerateAppxPackageOnBuild>
+    <SelfContained>true</SelfContained>
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
   <ItemGroup>
     <Content Include="Assets\ClipDatMark.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\SplashScreen.scale-200.png" />

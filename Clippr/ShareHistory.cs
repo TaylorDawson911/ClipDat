@@ -16,7 +16,7 @@ public sealed class ShareHistory
     {
         var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var packages = Path.Combine(local, "Packages");
-        if (Directory.Exists(packages))
+        if (PackageIdentity.IsPackaged && Directory.Exists(packages))
         {
             var core = Directory.EnumerateDirectories(packages, "ce842948-d72b-4d57-ae7b-474f481f442e_*")
                 .FirstOrDefault();

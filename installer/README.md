@@ -1,6 +1,20 @@
 # ClipDat release packaging
 
-ClipDat's main application is a WinUI 3 **MSIX** package. Windows installs it per user and manages its install location, Start Menu entry, Installed Apps registration, and updates. The existing `Clippr/packaging/Build-Release.ps1` packages the app and the Windows App SDK runtime dependency. A traditional Inno installer would create a second deployment identity for the same app, so this release path stays MSIX. The standalone Clip Library remains a separate optional archive with its own installer and uninstaller script.
+## Windows EXE installer
+
+`installer/scripts/Build-ExeInstaller.ps1` publishes a self-contained, unpackaged x64 copy of ClipDat and wraps it in a per-user Inno Setup installer. It needs .NET 8, the native C++ build tools and pinned dependencies, and Inno Setup 6. Run from the repository root:
+
+```powershell
+& .\installer\scripts\Build-ExeInstaller.ps1
+```
+
+The result is `installer/release/ClipDat-Setup-v<version>-x64.exe`. Double-click it to install; it creates a Start Menu shortcut and an optional desktop shortcut. Uninstall from Windows Installed Apps. The installer leaves clips, screenshots, and user settings intact. On first launch, the EXE build copies settings and share history from an existing ClipDat MSIX if the unpackaged locations are empty. It does not remove an existing MSIX; close or uninstall the old package before launching the EXE edition because ClipDat allows one running copy.
+
+This EXE is currently unsigned. Windows SmartScreen may warn on download or first launch. A trusted code-signing certificate is still needed to avoid that warning as reputation builds. The legacy MSIX release flow below remains available separately.
+
+## Legacy MSIX packaging
+
+The existing `Clippr/packaging/Build-Release.ps1` packages ClipDat as an MSIX with a Windows App SDK runtime dependency. Windows manages that package's installation, Start Menu registration, and updates. The EXE edition uses a separate unpackaged installation and does not upgrade or remove the MSIX. The standalone Clip Library remains an optional archive with its own installer and uninstaller script.
 
 `Start-Setup.ps1` provides a dark guided setup screen for Express, Minimal, and Custom installation. It applies supported first-run settings and invokes the real MSIX installer. WinForms cannot reproduce every rounded control and animation in the concept artwork; package reliability takes priority.
 

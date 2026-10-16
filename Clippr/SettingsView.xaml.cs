@@ -993,16 +993,20 @@ public sealed partial class SettingsView : UserControl
     {
         try
         {
-            var roots = new[]
+            var roots = new List<string>
             {
                 AppContext.BaseDirectory,
-                Windows.Storage.ApplicationData.Current.LocalFolder.Path,
-                Windows.Storage.ApplicationData.Current.LocalCacheFolder.Path,
-                Windows.Storage.ApplicationData.Current.RoamingFolder.Path,
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Clippr")
-            }.Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            };
+            if (PackageIdentity.IsPackaged)
+            {
+                roots.Add(Windows.Storage.ApplicationData.Current.LocalFolder.Path);
+                roots.Add(Windows.Storage.ApplicationData.Current.LocalCacheFolder.Path);
+                roots.Add(Windows.Storage.ApplicationData.Current.RoamingFolder.Path);
+            }
             var clips = Path.GetFullPath(_draft.ClipFolder);
-            var total = await Task.Run(() => MeasureAppFiles(roots, clips));
+            var total = await Task.Run(() => MeasureAppFiles(roots.Select(Path.GetFullPath)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray(), clips));
             AppStorageText.Text = $"ClipDat app files and data: {FormatAppSize(total)} · recordings excluded";
         }
         catch

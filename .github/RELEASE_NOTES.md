@@ -1,19 +1,18 @@
-## ClipDat release
+## ClipDat v1.0.23
 
-Download the ClipDat Setup ZIP, extract it, and run `Start-Setup.ps1` from PowerShell. Keep the `Dependencies` folder beside the script. The optional standalone Clip Library is included as a selectable add-on and is also available as a separate ZIP.
+Download `ClipDat-Setup-v1.0.23.0-x64.exe` and run it to install ClipDat for your Windows user account. The installer creates a Start Menu shortcut, offers an optional desktop shortcut, and can be removed from Windows Installed Apps.
 
 ### Changes
 
-- Replay clips can be organised into game folders, with custom executable mappings.
-- The main and optional standalone Clip Libraries discover game subfolders.
-- The installer supports Express and Minimal first-run settings without replacing existing settings during upgrades.
+- The main app now has a standard EXE installer. It includes the app's runtime and preserves clips and settings when uninstalled.
+- On first launch, this edition copies settings and share history from an existing ClipDat MSIX if its own data folders are empty.
+- Replay clips can be organised into game folders, with custom executable mappings. The Clip Library discovers game subfolders.
 
 ### Upgrade and known limits
 
-- Install the newer MSIX with the same package identity and signing publisher. Close ClipDat normally before upgrading.
-- Existing clips, screenshots, settings, hotkeys, and mappings are preserved.
+- Close ClipDat before installing or updating. The EXE edition does not remove an older MSIX installation; both editions share a single-instance lock.
+- Existing clips, screenshots, settings, hotkeys, and mappings are preserved. The EXE edition copies eligible MSIX data only when its own data does not already exist.
 - Public Quick Share links are unavailable until a supported, verified HTTPS endpoint is configured. Voice recognition requires local Windows speech support and microphone permission.
-- Direct recording file organisation and the exact rounded visual treatment in the concept art are not included.
-- Clean-machine installation, upgrade, repair, and runtime behaviour must be verified before marking a release production-ready.
+- This installer is unsigned, so Windows SmartScreen may warn when opening it. Runtime checks were performed on a development PC; clean-machine installation remains unverified.
 
-Verify downloads against `SHA256SUMS.txt`. Windows may warn about unsigned development artifacts; public releases require a trusted signature.
+Verify the download against its SHA-256 checksum in the release assets.

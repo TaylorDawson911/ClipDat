@@ -63,6 +63,7 @@ namespace Clippr
         /// <param name="args">Details about the launch request and process.</param>
         protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
         {
+            PackageIdentity.MigrateUserData();
             _instanceMutex = new Mutex(initiallyOwned: true, @"Local\Clippr.SingleInstance", out var createdNew);
             if (!createdNew)
             {
