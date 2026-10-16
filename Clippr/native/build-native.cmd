@@ -23,7 +23,6 @@ cl /nologo /std:c++latest /EHsc /W4 /permissive- /MD /DWIN32_LEAN_AND_MEAN /DNOM
 if errorlevel 1 exit /b %errorlevel%
 cl /nologo /std:c++latest /EHsc /W4 /permissive- /MD /DWIN32_LEAN_AND_MEAN /DNOMINMAX /I"%~dp0include" /I"%FFMPEG_ROOT%\include" /c "%~dp0src\replay_export.cpp" /Fo:"%~dp0build\x64\replay_export.obj"
 if errorlevel 1 exit /b %errorlevel%
-if errorlevel 1 exit /b %errorlevel%
 cl /nologo /std:c++latest /EHsc /W4 /permissive- /MD /DWIN32_LEAN_AND_MEAN /DNOMINMAX /I"%~dp0include" /I"%FFMPEG_ROOT%\include" /c "%~dp0src\audio_capture.cpp" /Fo:"%~dp0build\x64\audio_capture.obj"
 if errorlevel 1 exit /b %errorlevel%
 link /nologo /DLL /LIBPATH:"%FFMPEG_ROOT%\lib" /LIBPATH:"%FFMPEG_ROOT%\bin" /OUT:"%~dp0build\x64\ClipprCapture.dll" "%~dp0build\x64\capture.obj" "%~dp0build\x64\settings_store.obj" "%~dp0build\x64\hardware_h264_encoder.obj" "%~dp0build\x64\audio_capture.obj" "%~dp0build\x64\replay_buffer.obj" "%~dp0build\x64\replay_export.obj" d3d11.lib dxgi.lib d2d1.lib dwmapi.lib version.lib shell32.lib user32.lib gdi32.lib windowsapp.lib mfplat.lib mfreadwrite.lib mfuuid.lib mf.lib ole32.lib uuid.lib windowscodecs.lib avformat.lib avcodec.lib avutil.lib

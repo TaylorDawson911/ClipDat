@@ -181,7 +181,7 @@ namespace Clippr
             _musicAudioPid = _settings.MusicAudioProcessId;
             _preferredDisplayName = _settings.PreferredDisplay;
             _recordingFps = _settings.FrameRate;
-            _recordingBitrate = _settings.QualityPreset == "High" ? 16_000_000u : 8_000_000u;
+            _recordingBitrate = GetRecordingBitrate(_settings.QualityPreset);
             _recordingFullHd = _settings.Resolution == "1920x1080";
             _startCaptureAutomatically = _settings.StartCaptureAutomatically;
             _capturePaused = !_startCaptureAutomatically;
@@ -312,6 +312,18 @@ namespace Clippr
 
         private static uint GetReplayRetentionSeconds(ClipprSettings settings) =>
             (uint)settings.ClipLengthSeconds;
+
+        private static uint GetRecordingBitrate(string qualityPreset) =>
+            qualityPreset == "High" ? 16_000_000u : 8_000_000u;
+
+        private static int ConfigureReplay(IntPtr capture, uint durationSeconds, ulong memoryLimitMb,
+                                           int minimumFreeDiskSpaceGb, uint bitrate)
+        {
+            const ulong mib = 1024UL * 1024;
+            const ulong gib = 1024UL * mib;
+            return NativeCapture.ClipprConfigureReplay(capture, durationSeconds, memoryLimitMb * mib,
+                8UL * gib, (ulong)minimumFreeDiskSpaceGb * gib, bitrate);
+        }
 
         private static int EncoderMode(string encoder) => encoder switch
         {
@@ -643,7 +655,7 @@ namespace Clippr
             _musicAudioPid = settings.MusicAudioProcessId;
             PopulateAudioControls();
             _recordingFps = settings.FrameRate;
-            _recordingBitrate = settings.QualityPreset == "High" ? 16_000_000u : 8_000_000u;
+            _recordingBitrate = GetRecordingBitrate(settings.QualityPreset);
             _recordingFullHd = settings.Resolution == "1920x1080";
             _startCaptureAutomatically = settings.StartCaptureAutomatically;
 
@@ -671,10 +683,9 @@ namespace Clippr
             }
             if (replayChanged)
             {
-                var replayResult = await Task.Run(() => NativeCapture.ClipprConfigureReplay(
-                    capture, GetReplayRetentionSeconds(settings), (ulong)settings.ReplayMemoryLimitMb * 1024 * 1024,
-                    8UL * 1024 * 1024 * 1024, (ulong)settings.MinimumFreeDiskSpaceGb * 1024 * 1024 * 1024,
-                    settings.QualityPreset == "High" ? 16_000_000u : 8_000_000u));
+                var replayResult = await Task.Run(() => ConfigureReplay(capture,
+                    GetReplayRetentionSeconds(settings), (ulong)settings.ReplayMemoryLimitMb,
+                    settings.MinimumFreeDiskSpaceGb, GetRecordingBitrate(settings.QualityPreset)));
                 if (replayResult < 0) Marshal.ThrowExceptionForHR(replayResult);
                 _replaySeconds = (uint)settings.ClipLengthSeconds;
                 _replayRamMb = (ulong)settings.ReplayMemoryLimitMb;
@@ -799,9 +810,9 @@ namespace Clippr
                 stage = "native graphics initialization";
                 Marshal.ThrowExceptionForHR(NativeCapture.ClipprCreateCapture(panel, width, height, out _capture));
                 Marshal.ThrowExceptionForHR(NativeCapture.ClipprConfigureEncoder(_capture, EncoderMode(_settings.Encoder)));
-                Marshal.ThrowExceptionForHR(NativeCapture.ClipprConfigureReplay(
-                    _capture, GetReplayRetentionSeconds(_settings), _replayRamMb * 1024 * 1024, 8UL * 1024 * 1024 * 1024,
-                    (ulong)_settings.MinimumFreeDiskSpaceGb * 1024 * 1024 * 1024, _recordingBitrate));
+                Marshal.ThrowExceptionForHR(ConfigureReplay(_capture,
+                    GetReplayRetentionSeconds(_settings), _replayRamMb,
+                    _settings.MinimumFreeDiskSpaceGb, _recordingBitrate));
                 if (!_clippingEnabled)
                     Marshal.ThrowExceptionForHR(NativeCapture.ClipprSetReplayEnabled(_capture, 0));
                 Marshal.ThrowExceptionForHR(NativeCapture.ClipprConfigureReplayOutput(_capture, _clipFolder, _clipFormat));
@@ -1914,11 +1925,9 @@ namespace Clippr
                             NativeCapture.ClipprConfigureReplayOutput(capture, _clipFolder, format)));
                     if (replayChanged)
                     {
-                        var result = await Task.Run(() => NativeCapture.ClipprConfigureReplay(capture,
+                        var result = await Task.Run(() => ConfigureReplay(capture,
                             (uint)Math.Max(seconds, _settings.VoiceCommandsEnabled ? 60 : seconds),
-                            _replayRamMb * 1024 * 1024, 8UL * 1024 * 1024 * 1024,
-                            (ulong)_settings.MinimumFreeDiskSpaceGb * 1024 * 1024 * 1024,
-                            quality == "High" ? 16_000_000u : 8_000_000u));
+                            _replayRamMb, _settings.MinimumFreeDiskSpaceGb, GetRecordingBitrate(quality)));
                         if (result < 0)
                         {
                             if (formatChanged)
@@ -1931,7 +1940,7 @@ namespace Clippr
                 _settings.QualityPreset = quality;
                 _settings.ClipLengthSeconds = seconds;
                 _settings.VideoFormat = format;
-                _recordingBitrate = quality == "High" ? 16_000_000u : 8_000_000u;
+                _recordingBitrate = GetRecordingBitrate(quality);
                 _replaySeconds = (uint)seconds;
                 _clipFormat = format;
                 _settings.SaveAtomicJson();
@@ -2035,9 +2044,9 @@ namespace Clippr
                 if (_capture == IntPtr.Zero || _closing) return;
                 ReplayMessage.Text = "Applying replay settings…";
                 var capture = _capture;
-                var result = await Task.Run(() => NativeCapture.ClipprConfigureReplay(
-                    capture, (uint)Math.Max(seconds, _settings.VoiceCommandsEnabled ? 60 : (int)seconds), ramMb * 1024 * 1024, 8UL * 1024 * 1024 * 1024,
-                    (ulong)_settings.MinimumFreeDiskSpaceGb * 1024 * 1024 * 1024, _recordingBitrate));
+                var result = await Task.Run(() => ConfigureReplay(capture,
+                    (uint)Math.Max(seconds, _settings.VoiceCommandsEnabled ? 60 : (int)seconds),
+                    ramMb, _settings.MinimumFreeDiskSpaceGb, _recordingBitrate));
                 if (result < 0) ReplayMessage.Text = $"Replay settings failed: 0x{result:X8}";
                 else
                 {

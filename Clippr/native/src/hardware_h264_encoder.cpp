@@ -122,12 +122,12 @@ public:
         if (FAILED(hr = device->QueryInterface(IID_PPV_ARGS(video_device_.GetAddressOf())))) return hr;
         if (FAILED(hr = context.As(&video_context_))) return hr;
 
-        UINT reset_token{};
-        if (FAILED(hr = MFCreateDXGIDeviceManager(&reset_token, manager_.GetAddressOf()))) return hr;
-        if (FAILED(hr = manager_->ResetDevice(device, reset_token))) return hr;
         ComPtr<IMFAttributes> attributes;
         if (FAILED(hr = MFCreateAttributes(attributes.GetAddressOf(), 3))) return hr;
         if (config.mode == H264EncoderMode::hardware) {
+            UINT reset_token{};
+            if (FAILED(hr = MFCreateDXGIDeviceManager(&reset_token, manager_.GetAddressOf()))) return hr;
+            if (FAILED(hr = manager_->ResetDevice(device, reset_token))) return hr;
             if (FAILED(hr = attributes->SetUnknown(MF_SINK_WRITER_D3D_MANAGER, manager_.Get()))) return hr;
             if (FAILED(hr = attributes->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, TRUE))) return hr;
         } else {
@@ -169,17 +169,19 @@ public:
         if (FAILED(hr = MFSetAttributeRatio(input_type.Get(), MF_MT_PIXEL_ASPECT_RATIO, 1, 1))) return hr;
         if (FAILED(hr = writer_->SetInputMediaType(stream_, input_type.Get(), nullptr))) return hr;
 
-        // Enabling hardware transforms is a preference on older Windows builds.
-        // Reject a software encoder rather than silently reporting hardware encoding.
+        // The sink writer's hardware flag is a preference. Verify the selected transform
+        // so the requested mode and reported backend match the encoder actually used.
         ComPtr<IMFSinkWriterEx> writer_ex;
         if (FAILED(hr = writer_.As(&writer_ex))) return hr;
         bool hardware_encoder = false;
+        bool found_encoder = false;
         for (DWORD i = 0;; ++i) {
             GUID category{};
             ComPtr<IMFTransform> transform;
             hr = writer_ex->GetTransformForStream(stream_, i, &category, transform.GetAddressOf());
             if (FAILED(hr)) break;
             if (category != MFT_CATEGORY_VIDEO_ENCODER) continue;
+            found_encoder = true;
             ComPtr<IMFAttributes> transform_attributes;
             if (SUCCEEDED(transform->GetAttributes(transform_attributes.GetAddressOf()))) {
                 UINT32 length{};
@@ -189,7 +191,8 @@ public:
                 }
             }
         }
-        if (hardware_encoder != (config.mode == H264EncoderMode::hardware)) return MF_E_TOPO_CODEC_NOT_FOUND;
+        if (!found_encoder || hardware_encoder != (config.mode == H264EncoderMode::hardware))
+            return MF_E_TOPO_CODEC_NOT_FOUND;
         hardware_ = hardware_encoder;
         if (FAILED(hr = writer_->BeginWriting())) return hr;
         started_ = true;
@@ -323,9 +326,11 @@ public:
 
 } // namespace
 
-long CreateH264Encoder(ID3D11Device* device, VideoEncodingConfig config,
-                               std::wstring const& path,
-                               std::unique_ptr<IVideoEncoder>& result) noexcept {
+namespace {
+
+long CreateEncoder(ID3D11Device* device, VideoEncodingConfig config,
+                   std::wstring const& path, PacketCallback callback,
+                   std::unique_ptr<IVideoEncoder>& result) noexcept {
     result.reset();
     try {
         const auto requested_mode = config.mode;
@@ -334,29 +339,25 @@ long CreateH264Encoder(ID3D11Device* device, VideoEncodingConfig config,
             if (requested_mode != H264EncoderMode::automatic && requested_mode != mode) continue;
             config.mode = mode;
             auto encoder = std::make_unique<MfH264Encoder>();
-            hr = encoder->Initialize(device, config, path);
+            hr = encoder->Initialize(device, config, path, callback);
             if (SUCCEEDED(hr)) { result = std::move(encoder); return S_OK; }
         }
         return hr;
     } catch (...) { return E_OUTOFMEMORY; }
 }
 
+} // namespace
+
+long CreateH264Encoder(ID3D11Device* device, VideoEncodingConfig config,
+                       std::wstring const& path,
+                       std::unique_ptr<IVideoEncoder>& result) noexcept {
+    return CreateEncoder(device, config, path, {}, result);
+}
+
 long CreateH264PacketEncoder(ID3D11Device* device, VideoEncodingConfig config,
-                                     PacketCallback callback,
-                                     std::unique_ptr<IVideoEncoder>& result) noexcept {
-    result.reset();
-    try {
-        const auto requested_mode = config.mode;
-        HRESULT hr = MF_E_TOPO_CODEC_NOT_FOUND;
-        for (auto mode : {H264EncoderMode::hardware, H264EncoderMode::software}) {
-            if (requested_mode != H264EncoderMode::automatic && requested_mode != mode) continue;
-            config.mode = mode;
-            auto encoder = std::make_unique<MfH264Encoder>();
-            hr = encoder->Initialize(device, config, {}, callback);
-            if (SUCCEEDED(hr)) { result = std::move(encoder); return S_OK; }
-        }
-        return hr;
-    } catch (...) { return E_OUTOFMEMORY; }
+                             PacketCallback callback,
+                             std::unique_ptr<IVideoEncoder>& result) noexcept {
+    return CreateEncoder(device, config, {}, std::move(callback), result);
 }
 
 } // namespace clippr::encode

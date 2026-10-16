@@ -31,14 +31,14 @@ public:
     virtual int Stage() const noexcept = 0;
 };
 
-// Fails if a compatible hardware H.264 transform cannot be selected.
+// Selects the requested Media Foundation H.264 encoder. Automatic prefers hardware.
 long CreateH264Encoder(ID3D11Device* device, VideoEncodingConfig config,
-                               std::wstring const& path,
-                               std::unique_ptr<IVideoEncoder>& result) noexcept;
+                       std::wstring const& path,
+                       std::unique_ptr<IVideoEncoder>& result) noexcept;
 
 using PacketCallback = std::function<void(clippr::core::EncodedPacket&&)>;
 long CreateH264PacketEncoder(ID3D11Device* device, VideoEncodingConfig config,
-                                     PacketCallback callback,
-                                     std::unique_ptr<IVideoEncoder>& result) noexcept;
+                             PacketCallback callback,
+                             std::unique_ptr<IVideoEncoder>& result) noexcept;
 
 } // namespace clippr::encode
