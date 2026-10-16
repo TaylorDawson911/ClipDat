@@ -607,21 +607,18 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
                                                                        image.GetAddressOf()));
             drawing->BeginDraw();
             drawing->Clear(D2D1::ColorF(D2D1::ColorF::Black));
-            // Keep the preview edge-to-edge. The source is cropped equally on
-            // opposite sides when its aspect ratio differs from the card.
-            const float source_aspect = static_cast<float>(size.Width) / size.Height;
-            const float preview_aspect = static_cast<float>(preview_width) / preview_height;
-            float crop_width = static_cast<float>(size.Width);
-            float crop_height = static_cast<float>(size.Height);
-            if (source_aspect > preview_aspect) crop_width = crop_height * preview_aspect;
-            else crop_height = crop_width / preview_aspect;
-            const float source_left = (size.Width - crop_width) * 0.5f;
-            const float source_top = (size.Height - crop_height) * 0.5f;
+            // Fit the entire captured surface inside the preview at its original aspect ratio.
+            const float scale = std::min(static_cast<float>(preview_width) / size.Width,
+                                         static_cast<float>(preview_height) / size.Height);
+            const float display_width = size.Width * scale;
+            const float display_height = size.Height * scale;
+            const float display_left = (preview_width - display_width) * 0.5f;
+            const float display_top = (preview_height - display_height) * 0.5f;
             drawing->DrawBitmap(image.Get(),
-                                D2D1::RectF(0, 0, static_cast<float>(preview_width), static_cast<float>(preview_height)),
+                                D2D1::RectF(display_left, display_top,
+                                            display_left + display_width, display_top + display_height),
                                 1.0f, D2D1_INTERPOLATION_MODE_LINEAR,
-                                D2D1::RectF(source_left, source_top,
-                                            source_left + crop_width, source_top + crop_height));
+                                D2D1::RectF(0, 0, static_cast<float>(size.Width), static_cast<float>(size.Height)));
             winrt::check_hresult(drawing->EndDraw());
             winrt::check_hresult(swapchain->Present(0, 0));
             ++frames;

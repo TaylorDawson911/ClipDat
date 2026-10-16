@@ -738,9 +738,8 @@ namespace Clippr
             var stage = "WinUI panel interop";
             try
             {
-                var scale = PreviewPanel.XamlRoot?.RasterizationScale ?? 1;
-                var width = Math.Max(1, (int)Math.Round(PreviewPanel.ActualWidth * scale));
-                var height = Math.Max(1, (int)Math.Round(PreviewPanel.ActualHeight * scale));
+                var width = Math.Max(1, (int)Math.Round(PreviewPanel.ActualWidth));
+                var height = Math.Max(1, (int)Math.Round(PreviewPanel.ActualHeight));
                 var panel = ((WinRT.IWinRTObject)PreviewPanel).NativeObject.ThisPtr;
                 stage = "native graphics initialization";
                 Marshal.ThrowExceptionForHR(NativeCapture.ClipprCreateCapture(panel, width, height, out _capture));
@@ -2372,9 +2371,8 @@ namespace Clippr
             rounded.CornerRadius = new Vector2(11, 11);
             previewVisual.Clip = previewVisual.Compositor.CreateGeometricClip(rounded);
             if (_capture == IntPtr.Zero) return;
-            var scale = PreviewPanel.XamlRoot?.RasterizationScale ?? 1;
-            var width = Math.Max(1, (int)Math.Round(e.NewSize.Width * scale));
-            var height = Math.Max(1, (int)Math.Round(e.NewSize.Height * scale));
+            var width = Math.Max(1, (int)Math.Round(e.NewSize.Width));
+            var height = Math.Max(1, (int)Math.Round(e.NewSize.Height));
             var result = NativeCapture.ClipprResizePreview(_capture, width, height);
             if (result < 0) ShowPreviewMessage($"Preview resize failed: 0x{result:X8}");
         }
