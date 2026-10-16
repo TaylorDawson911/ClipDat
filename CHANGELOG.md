@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Saved capture source, display, and application choices made on the main screen. Restored the share test runner after it lost its package identity test dependency.
+
 - Consolidated recording bitrate and replay buffer configuration, removed duplicate native encoder setup, and kept test build artifacts in the native build directory.
 
 - Added hardware H.264, software H.264, and automatic hardware-first encoding choices for recordings and replay clips.

@@ -893,6 +893,7 @@ namespace Clippr
             {
                 _settings.PreferredDisplay = display.DeviceName;
                 _preferredDisplayName = display.DeviceName;
+                SaveCapturePreference();
             }
             if (_selectedSource == CaptureSource.Screen) _ = BeginScreenCaptureAsync(monitor);
         }
@@ -967,6 +968,7 @@ namespace Clippr
         {
             _selectedWindow = window.Handle;
             _settings.PreferredApplicationProcessId = window.ProcessId;
+            SaveCapturePreference();
             DisplayLabel.Text = window.ApplicationName;
             if (window.Minimized != 0)
             {
@@ -2758,14 +2760,26 @@ namespace Clippr
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(GhostCaptureButton, action);
         }
 
-        private void OnScreenSourceClick(object sender, RoutedEventArgs e)
+        private async void OnScreenSourceClick(object sender, RoutedEventArgs e)
         {
-            _ = ApplyCaptureModeAsync(CaptureSource.Screen);
+            await ApplyCaptureModeAsync(CaptureSource.Screen);
+            SaveCapturePreference();
         }
 
         private async void OnApplicationSourceClick(object sender, RoutedEventArgs e)
         {
             await ApplyCaptureModeAsync(CaptureSource.Application);
+            SaveCapturePreference();
+        }
+
+        private void SaveCapturePreference()
+        {
+            try { _settings.SaveAtomicJson(); }
+            catch (Exception ex)
+            {
+                ReplayMessage.Text = $"Could not save capture selection: {ex.Message}";
+                _replayMessageUntil = DateTime.Now.AddSeconds(8);
+            }
         }
 
         private async Task ApplyCaptureModeAsync(CaptureSource source)
