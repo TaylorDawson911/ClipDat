@@ -94,6 +94,7 @@ namespace Clippr
         private bool _gameSamplePending;
         private int _gameSampleGeneration;
         private DateTime _replayMessageUntil;
+        private DateTime _replayReadyUntil;
         private DateTime _infoErrorUntil;
         private string? _infoError;
         private string _clipFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "ClipDat");
@@ -1420,10 +1421,6 @@ namespace Clippr
                 $"{backend} · Save {saveDuration}";
         }
 
-        private string ReadyReplayText(NativeCapture.ReplayStatus status) => DetailedPreviewEnabled
-            ? $"Replay ready · {_replaySeconds}s · {status.RamBytes / 1048576} MB RAM"
-            : "Replay ready";
-
         private void UpdateEncodingStatus()
         {
             var status = NativeCapture.ClipprGetEncodingStatus(_capture);
@@ -1460,6 +1457,7 @@ namespace Clippr
             if (ready && !_replayReadyNotified)
             {
                 _replayReadyNotified = true;
+                _replayReadyUntil = DateTime.UtcNow.AddSeconds(2);
                 ShowNotification(ClipNotificationKind.Ready, "Ready to clip",
                     $"ClipDat is buffering the last {_replaySeconds} seconds. Press {_settings.Hotkey.Replace("+", " + ", StringComparison.Ordinal)} to save.");
             }
@@ -1472,13 +1470,12 @@ namespace Clippr
                 while (failedCount-- > 0 && _pendingReplayPaths.Count > 0)
                     _organisationWarnings.Remove(_pendingReplayPaths.Dequeue());
                 ShowInfoError(FormatExportError(status.LastSaveError));
-                ReplayMessage.Text = "Replay ready";
             }
             else if (status.SavesCompleted > _replayCompletedSeen)
             {
                 var completedCount = status.SavesCompleted - _replayCompletedSeen;
                 _replayCompletedSeen = status.SavesCompleted;
-                ReplayMessage.Text = ReadyReplayText(status);
+                _replayReadyUntil = DateTime.UtcNow.AddSeconds(2);
                 var savedAny = false;
                 string? organisationWarning = null;
                 while (completedCount-- > 0)
@@ -1513,14 +1510,30 @@ namespace Clippr
                 }
                 else ShowInfoError("Clip export completed, but the saved file could not be verified.");
             }
-            else if (status.SavesActive > 0) ReplayMessage.Text = "Saving replay…";
-            else if (status.State == 3) ReplayMessage.Text = $"Replay unavailable: 0x{status.ErrorCode:X8}";
-            else if (status.State == 2 && status.Packets == 0) ReplayMessage.Text = "Waiting for replay keyframe…";
+            if (status.SavesActive > 0)
+                ReplayMessage.Text = "Saving replay…";
+            else if (status.State == 3)
+                ReplayMessage.Text = $"Replay unavailable: 0x{status.ErrorCode:X8}";
+            else if (status.State == 2 && status.Packets == 0)
+                ReplayMessage.Text = "Buffering replay…";
             else if (status.State == 2 && DateTime.Now >= _replayMessageUntil)
-                ReplayMessage.Text = ReadyReplayText(status);
-            else if (status.State == 1) ReplayMessage.Text = "Starting replay encoder…";
-            else if (status.State == 0) ReplayMessage.Text = _clippingEnabled
-                ? "Replay paused · select a source" : "Clipping stopped · preview remains live";
+                ReplayMessage.Text = DateTime.UtcNow < _replayReadyUntil
+                    ? "Replay ready"
+                    : $"Recording · {(status.RamBytes + status.DiskBytes) / 1048576.0:0} MB";
+            else if (status.State == 1)
+                ReplayMessage.Text = "Starting replay encoder…";
+            else if (status.State == 0)
+                ReplayMessage.Text = _clippingEnabled
+                    ? "Replay paused · select a source" : "Clipping stopped · preview remains live";
+
+            ReplayStatusDot.Fill = new SolidColorBrush(status.State switch
+            {
+                3 => ColorHelper.FromArgb(255, 232, 91, 91),
+                2 when status.SavesActive > 0 => ColorHelper.FromArgb(255, 91, 171, 241),
+                2 when status.Packets > 0 => ColorHelper.FromArgb(255, 58, 205, 121),
+                1 or 2 => ColorHelper.FromArgb(255, 230, 171, 69),
+                _ => ColorHelper.FromArgb(255, 134, 144, 154)
+            });
 
             UpdateInfoBanner();
         }

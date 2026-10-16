@@ -82,6 +82,18 @@
             </StackPanel>
             <StackPanel x:Name="TitleBarActions" Grid.ColumnSpan="2"
                         Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button x:Name="OpenClipsButton" Width="42" Height="32" Padding="0"
+                        Background="Transparent" BorderBrush="Transparent" BorderThickness="0"
+                        CornerRadius="5" UseSystemFocusVisuals="False" Click="OnOpenClipsClick"
+                        ToolTipService.ToolTip="Open Clips Folder" AutomationProperties.Name="Open Clips Folder">
+                    <FontIcon Glyph="&#xE8B7;" FontFamily="Segoe Fluent Icons" FontSize="17" />
+                </Button>
+                <Button x:Name="OpenLibraryButton" Width="42" Height="32" Padding="0"
+                        Background="Transparent" BorderBrush="Transparent" BorderThickness="0"
+                        CornerRadius="5" UseSystemFocusVisuals="False" Click="OnOpenLibraryClick"
+                        ToolTipService.ToolTip="Clip Library" AutomationProperties.Name="Clip Library">
+                    <FontIcon Glyph="&#xE8F1;" FontFamily="Segoe Fluent Icons" FontSize="17" />
+                </Button>
                 <Button x:Name="GhostCaptureButton" Width="42" Height="32" Padding="0"
                         Background="Transparent" BorderBrush="Transparent" BorderThickness="0"
                         CornerRadius="5" UseSystemFocusVisuals="False"
@@ -193,8 +205,8 @@
                         </Border>
                         <Border Padding="10,7" Background="#D91A1F22" CornerRadius="6">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Ellipse Width="9" Height="9" Fill="{ThemeResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" />
-                                <TextBlock x:Name="ReplayMessage" Text="Replay starting…" VerticalAlignment="Center"
+                                <Ellipse x:Name="ReplayStatusDot" Width="9" Height="9" Fill="#D6A24A" VerticalAlignment="Center" />
+                                <TextBlock x:Name="ReplayMessage" Text="Buffering replay…" VerticalAlignment="Center"
                                            Foreground="#F0F3F5" FontSize="12" TextTrimming="CharacterEllipsis" />
                                 <TextBlock x:Name="EncodingMessage" Text="" VerticalAlignment="Center"
                                            Foreground="#C1C9CE" FontSize="12" TextTrimming="CharacterEllipsis" />
@@ -210,10 +222,6 @@
                                         </MenuFlyout>
                                     </Button.Flyout>
                                 </Button>
-                                <Button x:Name="OpenClipsButton" Content="Open Clips" Height="28"
-                                        Padding="8,0" FontSize="12" Click="OnOpenClipsClick" />
-                                <Button x:Name="OpenLibraryButton" Content="Clip Library" Height="28"
-                                        Padding="8,0" FontSize="12" Click="OnOpenLibraryClick" />
                             </StackPanel>
                         </Border>
                         <TextBlock x:Name="SharingStatusText" Visibility="Collapsed" MaxWidth="750"
