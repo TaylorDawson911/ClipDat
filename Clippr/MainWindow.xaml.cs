@@ -582,7 +582,14 @@ namespace Clippr
 
         private void OnSettingsHostKeyDown(object sender, KeyRoutedEventArgs e)
         {
-            if (e.Key != VirtualKey.Escape || (_settingsView is null && _libraryView is null)) return;
+            if (e.Key != VirtualKey.Escape) return;
+            if (QuickOptionsPanel.Visibility == Visibility.Visible)
+            {
+                QuickOptionsPanel.Visibility = Visibility.Collapsed;
+                e.Handled = true;
+                return;
+            }
+            if (_settingsView is null && _libraryView is null) return;
             OnBackToCaptureClick(sender, new RoutedEventArgs());
             e.Handled = true;
         }
@@ -598,6 +605,7 @@ namespace Clippr
             var oldApplicationProcessId = _settings.PreferredApplicationProcessId;
             var replayChanged = _replaySeconds != (uint)settings.ClipLengthSeconds ||
                                 _replayRamMb != (ulong)settings.ReplayMemoryLimitMb ||
+                                _settings.QualityPreset != settings.QualityPreset ||
                                 _settings.VoiceCommandsEnabled != settings.VoiceCommandsEnabled ||
                                 _settings.MinimumFreeDiskSpaceGb != settings.MinimumFreeDiskSpaceGb;
             var formatChanged = _clipFormat != settings.VideoFormat || _clipFolder != settings.ClipFolder;
@@ -645,7 +653,8 @@ namespace Clippr
             {
                 var replayResult = await Task.Run(() => NativeCapture.ClipprConfigureReplay(
                     capture, GetReplayRetentionSeconds(settings), (ulong)settings.ReplayMemoryLimitMb * 1024 * 1024,
-                    8UL * 1024 * 1024 * 1024, (ulong)settings.MinimumFreeDiskSpaceGb * 1024 * 1024 * 1024));
+                    8UL * 1024 * 1024 * 1024, (ulong)settings.MinimumFreeDiskSpaceGb * 1024 * 1024 * 1024,
+                    settings.QualityPreset == "High" ? 16_000_000u : 8_000_000u));
                 if (replayResult < 0) Marshal.ThrowExceptionForHR(replayResult);
                 _replaySeconds = (uint)settings.ClipLengthSeconds;
                 _replayRamMb = (ulong)settings.ReplayMemoryLimitMb;
@@ -762,7 +771,7 @@ namespace Clippr
                 Marshal.ThrowExceptionForHR(NativeCapture.ClipprCreateCapture(panel, width, height, out _capture));
                 Marshal.ThrowExceptionForHR(NativeCapture.ClipprConfigureReplay(
                     _capture, GetReplayRetentionSeconds(_settings), _replayRamMb * 1024 * 1024, 8UL * 1024 * 1024 * 1024,
-                    (ulong)_settings.MinimumFreeDiskSpaceGb * 1024 * 1024 * 1024));
+                    (ulong)_settings.MinimumFreeDiskSpaceGb * 1024 * 1024 * 1024, _recordingBitrate));
                 if (!_clippingEnabled)
                     Marshal.ThrowExceptionForHR(NativeCapture.ClipprSetReplayEnabled(_capture, 0));
                 Marshal.ThrowExceptionForHR(NativeCapture.ClipprConfigureReplayOutput(_capture, _clipFolder, _clipFormat));
@@ -1796,6 +1805,92 @@ namespace Clippr
             _ => $"Clip export failed: 0x{error:X8}"
         };
 
+        private void OnQuickOptionsClick(object sender, RoutedEventArgs e)
+        {
+            if (QuickOptionsPanel.Visibility == Visibility.Visible)
+            {
+                QuickOptionsPanel.Visibility = Visibility.Collapsed;
+                return;
+            }
+            SelectQuickOption(QuickQualityCombo, _settings.QualityPreset);
+            SelectQuickOption(QuickLengthCombo, _settings.ClipLengthSeconds.ToString(),
+                $"{_settings.ClipLengthSeconds} seconds");
+            SelectQuickOption(QuickFormatCombo, _settings.VideoFormat);
+            QuickOptionsStatus.Visibility = Visibility.Collapsed;
+            QuickOptionsPanel.Visibility = Visibility.Visible;
+        }
+
+        private static void SelectQuickOption(ComboBox combo, string tag, string? customLabel = null)
+        {
+            var item = combo.Items.OfType<ComboBoxItem>()
+                .FirstOrDefault(option => string.Equals(option.Tag?.ToString(), tag, StringComparison.Ordinal));
+            if (item is null && customLabel is not null)
+            {
+                item = new ComboBoxItem { Content = customLabel, Tag = tag };
+                combo.Items.Add(item);
+            }
+            combo.SelectedItem = item;
+        }
+
+        private async void OnApplyQuickOptionsClick(object sender, RoutedEventArgs e)
+        {
+            var quality = (QuickQualityCombo.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+            var format = (QuickFormatCombo.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+            if (!int.TryParse((QuickLengthCombo.SelectedItem as ComboBoxItem)?.Tag?.ToString(), out var seconds) ||
+                seconds is < 1 or > 3600 || quality is not ("Standard" or "High") ||
+                format is not ("mp4" or "mkv")) return;
+
+            QuickOptionsApplyButton.IsEnabled = false;
+            await _captureGate.WaitAsync();
+            try
+            {
+                var replayChanged = seconds != _settings.ClipLengthSeconds || quality != _settings.QualityPreset;
+                var formatChanged = format != _settings.VideoFormat;
+                if (_capture != IntPtr.Zero && !_closing)
+                {
+                    var capture = _capture;
+                    if (formatChanged)
+                        Marshal.ThrowExceptionForHR(await Task.Run(() =>
+                            NativeCapture.ClipprConfigureReplayOutput(capture, _clipFolder, format)));
+                    if (replayChanged)
+                    {
+                        var result = await Task.Run(() => NativeCapture.ClipprConfigureReplay(capture,
+                            (uint)Math.Max(seconds, _settings.VoiceCommandsEnabled ? 60 : seconds),
+                            _replayRamMb * 1024 * 1024, 8UL * 1024 * 1024 * 1024,
+                            (ulong)_settings.MinimumFreeDiskSpaceGb * 1024 * 1024 * 1024,
+                            quality == "High" ? 16_000_000u : 8_000_000u));
+                        if (result < 0)
+                        {
+                            if (formatChanged)
+                                await Task.Run(() => NativeCapture.ClipprConfigureReplayOutput(capture, _clipFolder, _clipFormat));
+                            Marshal.ThrowExceptionForHR(result);
+                        }
+                    }
+                }
+
+                _settings.QualityPreset = quality;
+                _settings.ClipLengthSeconds = seconds;
+                _settings.VideoFormat = format;
+                _recordingBitrate = quality == "High" ? 16_000_000u : 8_000_000u;
+                _replaySeconds = (uint)seconds;
+                _clipFormat = format;
+                _settings.SaveAtomicJson();
+                ShowRecordingOptions();
+                ReplayMessage.Text = replayChanged ? "Buffering replay…" : "Quick options saved";
+                QuickOptionsPanel.Visibility = Visibility.Collapsed;
+            }
+            catch (Exception ex)
+            {
+                QuickOptionsStatus.Text = $"Could not apply options: {ex.Message}";
+                QuickOptionsStatus.Visibility = Visibility.Visible;
+            }
+            finally
+            {
+                _captureGate.Release();
+                QuickOptionsApplyButton.IsEnabled = true;
+            }
+        }
+
         private async void OnClipFormatClick(object sender, RoutedEventArgs e)
         {
             if (sender is not MenuFlyoutItem item || item.Tag is not string format ||
@@ -1882,7 +1977,7 @@ namespace Clippr
                 var capture = _capture;
                 var result = await Task.Run(() => NativeCapture.ClipprConfigureReplay(
                     capture, (uint)Math.Max(seconds, _settings.VoiceCommandsEnabled ? 60 : (int)seconds), ramMb * 1024 * 1024, 8UL * 1024 * 1024 * 1024,
-                    (ulong)_settings.MinimumFreeDiskSpaceGb * 1024 * 1024 * 1024));
+                    (ulong)_settings.MinimumFreeDiskSpaceGb * 1024 * 1024 * 1024, _recordingBitrate));
                 if (result < 0) ReplayMessage.Text = $"Replay settings failed: 0x{result:X8}";
                 else
                 {

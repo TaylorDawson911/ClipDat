@@ -104,7 +104,7 @@ __declspec(dllexport) long __cdecl ClipprStopEncoding(void* capture);
 __declspec(dllexport) struct ClipprEncodingStatus __cdecl ClipprGetEncodingStatus(void* capture);
 __declspec(dllexport) long __cdecl ClipprConfigureReplay(void* capture, uint32_t duration_seconds,
                                                         uint64_t ram_bytes, uint64_t disk_bytes,
-                                                        uint64_t minimum_free_disk_bytes);
+                                                        uint64_t minimum_free_disk_bytes, uint32_t bitrate);
 __declspec(dllexport) long __cdecl ClipprConfigureReplayOutput(void* capture,
                                                               const wchar_t* folder,
                                                               const wchar_t* extension);

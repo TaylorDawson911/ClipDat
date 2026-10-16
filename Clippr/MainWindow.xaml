@@ -192,6 +192,51 @@
                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Foreground="#D3D7DA" FontSize="15" />
                     </Border>
+                    <Button x:Name="QuickOptionsButton" HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Margin="12" Padding="10,6" Background="#D91A1F22" BorderBrush="#63727D"
+                            BorderThickness="1" CornerRadius="6" AutomationProperties.Name="Quick options"
+                            Click="OnQuickOptionsClick">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <FontIcon Glyph="&#xE713;" FontFamily="Segoe Fluent Icons" FontSize="14" />
+                            <TextBlock Text="Quick options" FontSize="12" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Border x:Name="QuickOptionsPanel" HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Margin="12,56,12,12" Width="300" Padding="16" Visibility="Collapsed"
+                            Background="#272D33" BorderBrush="#53616D" BorderThickness="1" CornerRadius="10">
+                                <StackPanel Spacing="10">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="Quick options" FontSize="17" FontWeight="SemiBold" />
+                                        <Button Grid.Column="1" Content="&#xE8BB;" FontFamily="Segoe Fluent Icons"
+                                                Background="Transparent" BorderThickness="0" Padding="4,0"
+                                                Click="OnQuickOptionsClick" AutomationProperties.Name="Close quick options" />
+                                    </Grid>
+                                    <TextBlock Text="Changes to quality and replay length restart the replay buffer."
+                                               Foreground="#BFC8D0" TextWrapping="Wrap" FontSize="12" />
+                                    <TextBlock Text="Quality" />
+                                    <ComboBox x:Name="QuickQualityCombo" HorizontalAlignment="Stretch" AutomationProperties.Name="Quality">
+                                        <ComboBoxItem Content="Standard · 8 Mbps" Tag="Standard" />
+                                        <ComboBoxItem Content="High · 16 Mbps" Tag="High" />
+                                    </ComboBox>
+                                    <TextBlock Text="Replay length" />
+                                    <ComboBox x:Name="QuickLengthCombo" HorizontalAlignment="Stretch" AutomationProperties.Name="Replay length">
+                                        <ComboBoxItem Content="10 seconds" Tag="10" />
+                                        <ComboBoxItem Content="20 seconds" Tag="20" />
+                                        <ComboBoxItem Content="30 seconds" Tag="30" />
+                                        <ComboBoxItem Content="60 seconds" Tag="60" />
+                                        <ComboBoxItem Content="2 minutes" Tag="120" />
+                                        <ComboBoxItem Content="15 minutes" Tag="900" />
+                                    </ComboBox>
+                                    <TextBlock Text="Clip format" />
+                                    <ComboBox x:Name="QuickFormatCombo" HorizontalAlignment="Stretch" AutomationProperties.Name="Clip format">
+                                        <ComboBoxItem Content="MP4" Tag="mp4" />
+                                        <ComboBoxItem Content="Matroska (MKV)" Tag="mkv" />
+                                    </ComboBox>
+                                    <TextBlock x:Name="QuickOptionsStatus" Foreground="#ED8E8F" TextWrapping="Wrap" Visibility="Collapsed" />
+                                    <Button x:Name="QuickOptionsApplyButton" Content="Apply options" HorizontalAlignment="Stretch"
+                                            Click="OnApplyQuickOptionsClick" />
+                                </StackPanel>
+                    </Border>
                     <StackPanel HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="12" Spacing="6" MaxWidth="750">
                         <Border x:Name="InfoBanner" Visibility="Collapsed" Padding="10,7"
                                 Background="#E0262023" BorderBrush="#BA4B51" BorderThickness="1" CornerRadius="8">

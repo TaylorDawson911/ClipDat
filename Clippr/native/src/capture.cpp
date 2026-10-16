@@ -185,6 +185,7 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
     bool replay_stopping{};
     int64_t last_replay_timestamp{-1};
     clippr::encode::VideoEncodingConfig replay_config{};
+    uint32_t replay_bitrate{8'000'000};
     std::atomic<int32_t> replay_state{0};
     std::atomic<bool> replay_enabled{true};
     std::atomic<bool> replay_audio_timeline_ready{false};
@@ -819,9 +820,11 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
         return encoding_error.load();
     }
 
-    long ConfigureReplay(uint32_t duration, uint64_t ram, uint64_t disk, uint64_t minimum_free) noexcept {
+    long ConfigureReplay(uint32_t duration, uint64_t ram, uint64_t disk, uint64_t minimum_free,
+                         uint32_t bitrate) noexcept {
         if (!duration || duration > 3600 || ram < 1024 * 1024 || disk > 100ULL * 1024 * 1024 * 1024 ||
-            minimum_free < 1024ULL * 1024 * 1024 || minimum_free > 100ULL * 1024 * 1024 * 1024)
+            minimum_free < 1024ULL * 1024 * 1024 || minimum_free > 100ULL * 1024 * 1024 * 1024 ||
+            bitrate < 100'000 || bitrate > 100'000'000)
             return E_INVALIDARG;
         std::scoped_lock capture_lock(mutex);
         StopReplay();
@@ -830,6 +833,7 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
         replay_limits.ram_bytes = static_cast<std::size_t>(ram);
         replay_limits.disk_bytes = static_cast<std::size_t>(disk);
         replay_limits.minimum_free_disk_bytes = minimum_free;
+        replay_bitrate = bitrate;
         if (state == CLIPPR_CAPTURE_RUNNING && replay_enabled.load()) StartReplay();
         return replay_error.load();
     }
@@ -879,7 +883,7 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
         if (!width || !height) { replay_error = E_INVALIDARG; replay_state = 3; return; }
         {
             std::scoped_lock lock(replay_mutex);
-            replay_config = {width, height, 30, 8'000'000};
+            replay_config = {width, height, 30, replay_bitrate};
             replay_buffer = std::make_shared<clippr::core::ReplayBuffer>(replay_limits);
             replay_queue.clear();
             replay_stopping = false;
@@ -1412,10 +1416,10 @@ extern "C" ClipprEncodingStatus __cdecl ClipprGetEncodingStatus(void* capture) {
 
 extern "C" long __cdecl ClipprConfigureReplay(void* capture, uint32_t duration_seconds,
                                                   uint64_t ram_bytes, uint64_t disk_bytes,
-                                                  uint64_t minimum_free_disk_bytes) {
+                                                  uint64_t minimum_free_disk_bytes, uint32_t bitrate) {
     if (!capture) return E_POINTER;
     return static_cast<CaptureHandle*>(capture)->component->ConfigureReplay(
-        duration_seconds, ram_bytes, disk_bytes, minimum_free_disk_bytes);
+        duration_seconds, ram_bytes, disk_bytes, minimum_free_disk_bytes, bitrate);
 }
 
 extern "C" long __cdecl ClipprConfigureReplayOutput(void* capture, wchar_t const* folder,
