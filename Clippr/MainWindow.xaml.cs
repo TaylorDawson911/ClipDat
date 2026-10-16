@@ -152,6 +152,10 @@ namespace Clippr
         {
             InitializeComponent();
             SettingsHost.RenderTransform = _settingsHostTranslate;
+            QuickOptionsPanel.RenderTransform = _quickOptionsTranslate;
+            foreach (var combo in new[] { QuickQualityCombo, QuickLengthCombo, QuickFormatCombo,
+                         GameAudioPicker, ChatAudioPicker, MusicAudioPicker })
+                ComboBoxPopupPlacement.Attach(combo);
             AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "ClipprTray.ico"));
             _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
             var workArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(
@@ -474,6 +478,8 @@ namespace Clippr
         }
 
         private bool _settingsTransitioning;
+        private bool _quickOptionsTransitioning;
+        private readonly TranslateTransform _quickOptionsTranslate = new();
 
         private async Task AnimateSettingsOpenAsync()
         {
@@ -585,7 +591,7 @@ namespace Clippr
             if (e.Key != VirtualKey.Escape) return;
             if (QuickOptionsPanel.Visibility == Visibility.Visible)
             {
-                QuickOptionsPanel.Visibility = Visibility.Collapsed;
+                _ = AnimateQuickOptionsAsync(show: false);
                 e.Handled = true;
                 return;
             }
@@ -1807,9 +1813,10 @@ namespace Clippr
 
         private void OnQuickOptionsClick(object sender, RoutedEventArgs e)
         {
+            if (_quickOptionsTransitioning) return;
             if (QuickOptionsPanel.Visibility == Visibility.Visible)
             {
-                QuickOptionsPanel.Visibility = Visibility.Collapsed;
+                _ = AnimateQuickOptionsAsync(show: false);
                 return;
             }
             SelectQuickOption(QuickQualityCombo, _settings.QualityPreset);
@@ -1817,7 +1824,30 @@ namespace Clippr
                 $"{_settings.ClipLengthSeconds} seconds");
             SelectQuickOption(QuickFormatCombo, _settings.VideoFormat);
             QuickOptionsStatus.Visibility = Visibility.Collapsed;
-            QuickOptionsPanel.Visibility = Visibility.Visible;
+            _ = AnimateQuickOptionsAsync(show: true);
+        }
+
+        private async Task AnimateQuickOptionsAsync(bool show)
+        {
+            if (_quickOptionsTransitioning) return;
+            _quickOptionsTransitioning = true;
+            const int durationMs = 150;
+            if (show)
+            {
+                QuickOptionsPanel.Opacity = 0;
+                _quickOptionsTranslate.Y = -9;
+                QuickOptionsPanel.Visibility = Visibility.Visible;
+            }
+            var storyboard = new Storyboard();
+            AddSettingsAnimation(storyboard, QuickOptionsPanel, "Opacity", show ? 0 : 1, show ? 1 : 0, durationMs);
+            AddSettingsAnimation(storyboard, _quickOptionsTranslate, "Y", show ? -9 : 0, show ? 0 : -9, durationMs);
+            storyboard.Begin();
+            await Task.Delay(durationMs);
+            storyboard.Stop();
+            QuickOptionsPanel.Opacity = 1;
+            _quickOptionsTranslate.Y = 0;
+            if (!show) QuickOptionsPanel.Visibility = Visibility.Collapsed;
+            _quickOptionsTransitioning = false;
         }
 
         private static void SelectQuickOption(ComboBox combo, string tag, string? customLabel = null)
@@ -1877,7 +1907,7 @@ namespace Clippr
                 _settings.SaveAtomicJson();
                 ShowRecordingOptions();
                 ReplayMessage.Text = replayChanged ? "Buffering replay…" : "Quick options saved";
-                QuickOptionsPanel.Visibility = Visibility.Collapsed;
+                await AnimateQuickOptionsAsync(show: false);
             }
             catch (Exception ex)
             {

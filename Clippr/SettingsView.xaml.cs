@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
@@ -13,6 +14,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage.Pickers;
@@ -29,6 +31,8 @@ public sealed partial class SettingsView : UserControl
     private bool _ready;
     private bool _applying;
     private bool _transitioning;
+    private bool _deviceListsLoaded;
+    private readonly Dictionary<uint, ImageSource> _applicationIconSources = new();
     private bool? _captureSourceCompact;
     private DateTime _nextAudioPreviewUpdate;
     private DateTime _microphoneTestUntil;
@@ -55,6 +59,7 @@ public sealed partial class SettingsView : UserControl
         VersionText.Text = GetVersion();
         ConfigureFeedback();
         _ready = true;
+        Loaded += OnSettingsLoaded;
         SaveSettingsButton.IsEnabled = ClipprSettings.LastLoadWasCorrupt;
         if (ClipprSettings.LastLoadWasCorrupt)
         {
@@ -207,18 +212,66 @@ public sealed partial class SettingsView : UserControl
         MicrophoneCheck.IsOn = _draft.MicrophoneAudioEnabled;
         NotificationSoundCheck.IsOn = _draft.SaveNotificationSound;
 
-        PopulateDisplays();
-        var applications = _mainWindow.EnumerateSettingsApplications();
-        PopulateApplications(PreferredApplicationCombo, _draft.PreferredApplicationProcessId, applications);
-        PopulateAudioDevices(renderDevices: true, OutputDeviceCombo, _draft.AudioOutputId);
-        PopulateAudioDevices(renderDevices: false, InputDeviceCombo, _draft.AudioInputId);
-        PopulateApplications(GameAudioCombo, _draft.GameAudioProcessId, applications);
-        PopulateApplications(DiscordAudioCombo, _draft.DiscordAudioProcessId, applications);
+        PreferredDisplayCombo.Items.Add(new ComboBoxItem { Content = "Finding displays…", IsEnabled = false });
+        PreferredApplicationCombo.Items.Add(new ComboBoxItem { Content = "Finding applications…", IsEnabled = false });
+        OutputDeviceCombo.Items.Add(new ComboBoxItem { Content = "Finding audio devices…", IsEnabled = false });
+        InputDeviceCombo.Items.Add(new ComboBoxItem { Content = "Finding audio devices…", IsEnabled = false });
+        GameAudioCombo.Items.Add(new ComboBoxItem { Content = "Finding applications…", IsEnabled = false });
+        DiscordAudioCombo.Items.Add(new ComboBoxItem { Content = "Finding applications…", IsEnabled = false });
         UpdateAudioAvailability();
+    }
+
+    private async void OnSettingsLoaded(object sender, RoutedEventArgs e)
+    {
+        if (_deviceListsLoaded) return;
+        _deviceListsLoaded = true;
+        try
+        {
+            var data = await Task.Run(() =>
+            {
+                var displays = _mainWindow.EnumerateSettingsDisplays();
+                var output = _mainWindow.EnumerateSettingsAudioDevices(true);
+                var input = _mainWindow.EnumerateSettingsAudioDevices(false);
+                var applications = _mainWindow.EnumerateSettingsApplications();
+                var icons = new Dictionary<uint, byte[]>();
+                foreach (var app in applications)
+                {
+                    var pixels = new byte[32 * 32 * 4];
+                    if (NativeCapture.ClipprCopyWindowIcon(app.Handle, pixels, pixels.Length) == 0)
+                        icons[app.ProcessId] = pixels;
+                }
+                return (displays, output, input, applications, icons);
+            });
+            if (!IsLoaded) return;
+            _applying = true;
+            try
+            {
+                PopulateDisplays(data.displays);
+                PopulateAudioDevices(OutputDeviceCombo, _draft.AudioOutputId, data.output);
+                PopulateAudioDevices(InputDeviceCombo, _draft.AudioInputId, data.input);
+                CacheApplicationIcons(data.icons);
+                PopulateApplications(PreferredApplicationCombo, _draft.PreferredApplicationProcessId, data.applications);
+                PopulateApplications(GameAudioCombo, _draft.GameAudioProcessId, data.applications);
+                PopulateApplications(DiscordAudioCombo, _draft.DiscordAudioProcessId, data.applications);
+                UpdateAudioAvailability();
+            }
+            finally { _applying = false; }
+        }
+        catch (Exception ex)
+        {
+            SettingsStatus.Text = $"Some device lists could not load: {ex.Message}";
+        }
     }
 
     private void WireEvents()
     {
+        foreach (var combo in new[] { CaptureModeCombo, PreferredDisplayCombo, PreferredApplicationCombo,
+                     ResolutionCombo, FrameRateCombo, EncoderCombo, MinimumFreeSpaceCombo, VoiceConfidenceCombo,
+                     OutputDeviceCombo, InputDeviceCombo, GameAudioCombo, DiscordAudioCombo, ClipLengthCombo,
+                     ReplayMemoryCombo, QualityCombo, VideoFormatCombo, ScreenshotFormatCombo,
+                     ScreenshotHotkeyCombo, FilenameFormatCombo, NotificationStyleCombo, HotkeyCombo,
+                     GameDetectionCombo, UnknownGameCombo, QuickShareMethodCombo, QuickShareFailureCombo })
+            ComboBoxPopupPlacement.Attach(combo);
         foreach (var combo in new[] { CaptureModeCombo, PreferredDisplayCombo, PreferredApplicationCombo, ResolutionCombo, FrameRateCombo,
                      OutputDeviceCombo, InputDeviceCombo, GameAudioCombo, DiscordAudioCombo, ClipLengthCombo,
                      ReplayMemoryCombo, QualityCombo, VideoFormatCombo, FilenameFormatCombo, NotificationStyleCombo, HotkeyCombo })
@@ -477,10 +530,9 @@ public sealed partial class SettingsView : UserControl
         }
     }
 
-    private void PopulateDisplays()
+    private void PopulateDisplays(NativeCapture.Display[] displays)
     {
         PreferredDisplayCombo.Items.Clear();
-        var displays = _mainWindow.EnumerateSettingsDisplays();
         foreach (var display in displays)
             PreferredDisplayCombo.Items.Add(new ComboBoxItem
             {
@@ -495,10 +547,13 @@ public sealed partial class SettingsView : UserControl
     }
 
     private void PopulateAudioDevices(bool renderDevices, ComboBox combo, string selectedId)
+        => PopulateAudioDevices(combo, selectedId, _mainWindow.EnumerateSettingsAudioDevices(renderDevices));
+
+    private static void PopulateAudioDevices(ComboBox combo, string selectedId, NativeCapture.AudioDevice[] devices)
     {
         combo.Items.Clear();
         combo.Items.Add(new ComboBoxItem { Content = "Default device", Tag = "" });
-        foreach (var device in _mainWindow.EnumerateSettingsAudioDevices(renderDevices))
+        foreach (var device in devices)
             combo.Items.Add(new ComboBoxItem
             {
                 Content = device.Name + (device.IsDefault != 0 ? " · Default" : ""),
@@ -509,12 +564,32 @@ public sealed partial class SettingsView : UserControl
         SelectTag(combo, selectedId);
     }
 
-    private static void PopulateApplications(ComboBox combo, uint selectedPid, NativeCapture.Window[] applications)
+    private void CacheApplicationIcons(Dictionary<uint, byte[]> icons)
+    {
+        _applicationIconSources.Clear();
+        foreach (var (processId, pixels) in icons)
+        {
+            var bitmap = new WriteableBitmap(32, 32);
+            using (var stream = bitmap.PixelBuffer.AsStream()) stream.Write(pixels, 0, pixels.Length);
+            bitmap.Invalidate();
+            _applicationIconSources[processId] = bitmap;
+        }
+    }
+
+    private void PopulateApplications(ComboBox combo, uint selectedPid, NativeCapture.Window[] applications)
     {
         combo.Items.Clear();
         combo.Items.Add(new ComboBoxItem { Content = "None", Tag = "0" });
         foreach (var app in applications)
-            combo.Items.Add(new ComboBoxItem { Content = app.ApplicationName, Tag = app.ProcessId.ToString() });
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9 };
+            if (_applicationIconSources.TryGetValue(app.ProcessId, out var source))
+                row.Children.Add(new Image { Source = source, Width = 20, Height = 20 });
+            else
+                row.Children.Add(new FontIcon { Glyph = "\uE71D", Width = 20, Height = 20, FontSize = 17 });
+            row.Children.Add(new TextBlock { Text = app.ApplicationName, VerticalAlignment = VerticalAlignment.Center });
+            combo.Items.Add(new ComboBoxItem { Content = row, Tag = app.ProcessId.ToString() });
+        }
         if (selectedPid != 0 && !combo.Items.OfType<ComboBoxItem>().Any(item => Equals(item.Tag, selectedPid.ToString())))
             combo.Items.Add(new ComboBoxItem { Content = "Application unavailable · refresh or choose another", Tag = selectedPid.ToString() });
         SelectTag(combo, selectedPid.ToString());
@@ -544,17 +619,34 @@ public sealed partial class SettingsView : UserControl
         finally { _applying = false; }
     }
 
-    private void OnRefreshAudioApplicationsClick(object sender, RoutedEventArgs e)
+    private async void OnRefreshAudioApplicationsClick(object sender, RoutedEventArgs e)
     {
         var game = uint.TryParse(GetTag(GameAudioCombo), out var gamePid) ? gamePid : 0;
         var chat = uint.TryParse(GetTag(DiscordAudioCombo), out var chatPid) ? chatPid : 0;
         _applying = true;
         try
         {
-            var applications = _mainWindow.EnumerateSettingsApplications();
-            PopulateApplications(GameAudioCombo, game, applications);
-            PopulateApplications(DiscordAudioCombo, chat, applications);
+            var data = await Task.Run(() =>
+            {
+                var applications = _mainWindow.EnumerateSettingsApplications();
+                var icons = new Dictionary<uint, byte[]>();
+                foreach (var app in applications)
+                {
+                    var pixels = new byte[32 * 32 * 4];
+                    if (NativeCapture.ClipprCopyWindowIcon(app.Handle, pixels, pixels.Length) == 0)
+                        icons[app.ProcessId] = pixels;
+                }
+                return (applications, icons);
+            });
+            if (!IsLoaded) return;
+            CacheApplicationIcons(data.icons);
+            PopulateApplications(GameAudioCombo, game, data.applications);
+            PopulateApplications(DiscordAudioCombo, chat, data.applications);
             UpdateAudioAvailability();
+        }
+        catch (Exception ex)
+        {
+            SettingsStatus.Text = $"Could not refresh applications: {ex.Message}";
         }
         finally { _applying = false; }
     }
