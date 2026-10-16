@@ -10,11 +10,14 @@
 
 namespace clippr::encode {
 
+enum class H264EncoderMode : int32_t { hardware = 0, software = 1, automatic = 2 };
+
 struct VideoEncodingConfig {
     uint32_t width{};
     uint32_t height{};
     uint32_t fps{30};
     uint32_t bitrate{8'000'000};
+    H264EncoderMode mode{H264EncoderMode::hardware};
 };
 
 // Timestamps are WGC SystemRelativeTime values in 100 ns units. Implementations
@@ -29,12 +32,12 @@ public:
 };
 
 // Fails if a compatible hardware H.264 transform cannot be selected.
-long CreateHardwareH264Encoder(ID3D11Device* device, VideoEncodingConfig config,
+long CreateH264Encoder(ID3D11Device* device, VideoEncodingConfig config,
                                std::wstring const& path,
                                std::unique_ptr<IVideoEncoder>& result) noexcept;
 
 using PacketCallback = std::function<void(clippr::core::EncodedPacket&&)>;
-long CreateHardwareH264PacketEncoder(ID3D11Device* device, VideoEncodingConfig config,
+long CreateH264PacketEncoder(ID3D11Device* device, VideoEncodingConfig config,
                                      PacketCallback callback,
                                      std::unique_ptr<IVideoEncoder>& result) noexcept;
 

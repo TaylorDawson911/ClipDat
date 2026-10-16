@@ -322,8 +322,8 @@
                                 <Grid x:Name="AdvancedEncoderRow" ColumnDefinitions="190,*" ColumnSpacing="16" Visibility="Collapsed">
                                     <TextBlock Text="Video encoder" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                                     <StackPanel Grid.Column="1" Spacing="4">
-                                        <ComboBox x:Name="EncoderCombo" IsEnabled="False" MinWidth="260" HorizontalAlignment="Stretch" />
-                                        <TextBlock Text="Media Foundation hardware availability is checked when recording starts." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <ComboBox x:Name="EncoderCombo" MinWidth="260" HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Hardware uses the GPU; software uses the CPU. Automatic tries hardware first. Changes reset the replay buffer." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
                                 </Grid>
                                 <TextBlock Text="Resolution and frame rate changes apply to the next recording. Stop the current recording first." TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />

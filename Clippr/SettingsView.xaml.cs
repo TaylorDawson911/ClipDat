@@ -102,7 +102,7 @@ public sealed partial class SettingsView : UserControl
         Add("Preview performance details", "Capture", CapturePage, ShowPreviewDiagnosticsCheck, "fps diagnostics", true);
         Add("Recording resolution", "Capture", CapturePage, ResolutionCombo, "video size");
         Add("Recording frame rate", "Capture", CapturePage, FrameRateCombo, "fps video");
-        Add("Video encoder", "Capture", CapturePage, EncoderCombo, "hardware h264 media foundation", true);
+        Add("Video encoder", "Capture", CapturePage, EncoderCombo, "hardware software cpu gpu automatic h264 media foundation", true);
 
         Add("Voice commands", "Voice Control", VoicePage, VoiceCommandsCheck, "speech recognition microphone");
         Add("Wake phrase", "Voice Control", VoicePage, VoiceWakePhraseBox, "voice command keyword");
@@ -299,7 +299,10 @@ public sealed partial class SettingsView : UserControl
         AddOptions(CaptureModeCombo, ("Screen", "Screen"), ("Application", "Application"));
         AddOptions(ResolutionCombo, ("Source", "Source resolution"), ("1920x1080", "1920 × 1080"));
         AddOptions(FrameRateCombo, ("30", "30 FPS"), ("60", "60 FPS"));
-        EncoderCombo.Items.Add(new ComboBoxItem { Content = "Media Foundation · hardware H.264", Tag = "MediaFoundationHardware" });
+        AddOptions(EncoderCombo,
+            ("MediaFoundationHardware", "Hardware H.264 (GPU)"),
+            ("MediaFoundationSoftware", "Software H.264 (CPU)"),
+            ("MediaFoundationAuto", "Automatic (hardware first)"));
         SelectTag(EncoderCombo, _draft.Encoder);
         AddOptions(ClipLengthCombo, ("10", "10 seconds"), ("20", "20 seconds"), ("30", "30 seconds"),
             ("60", "60 seconds"), ("120", "2 minutes"), ("900", "15 minutes"), ("custom", "Custom…"));
@@ -453,7 +456,7 @@ public sealed partial class SettingsView : UserControl
                      ScreenshotHotkeyCombo, FilenameFormatCombo, NotificationStyleCombo, HotkeyCombo,
                      GameDetectionCombo, UnknownGameCombo, QuickShareMethodCombo, QuickShareFailureCombo })
             ComboBoxPopupPlacement.Attach(combo);
-        foreach (var combo in new[] { CaptureModeCombo, PreferredDisplayCombo, PreferredApplicationCombo, ResolutionCombo, FrameRateCombo,
+        foreach (var combo in new[] { CaptureModeCombo, PreferredDisplayCombo, PreferredApplicationCombo, ResolutionCombo, FrameRateCombo, EncoderCombo,
                      OutputDeviceCombo, InputDeviceCombo, GameAudioCombo, DiscordAudioCombo, ClipLengthCombo,
                      ReplayMemoryCombo, QualityCombo, VideoFormatCombo, FilenameFormatCombo, NotificationStyleCombo, HotkeyCombo })
             combo.SelectionChanged += OnSettingChanged;

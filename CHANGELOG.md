@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added hardware H.264, software H.264, and automatic hardware-first encoding choices for recordings and replay clips.
+
 - Added first-run Express, Minimal, and validated Custom settings handoff to the existing ClipDat JSON settings store.
 - Added optional screenshot and Quick Share controls and a no-notifications preference.
 - Corrected native settings persistence for game folder configuration.

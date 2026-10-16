@@ -62,7 +62,7 @@ struct ClipprEncodingStatus {
     uint64_t last_write_latency_us;
     uint64_t average_write_latency_us;
     uint64_t max_write_latency_us;
-    int32_t active_encoder; // 0 idle, 1 Media Foundation hardware H.264
+    int32_t active_encoder; // bit 1 hardware H.264, bit 2 software H.264
     uint64_t average_queue_latency_us;
     uint64_t max_queue_latency_us;
 };
@@ -105,6 +105,8 @@ __declspec(dllexport) struct ClipprEncodingStatus __cdecl ClipprGetEncodingStatu
 __declspec(dllexport) long __cdecl ClipprConfigureReplay(void* capture, uint32_t duration_seconds,
                                                         uint64_t ram_bytes, uint64_t disk_bytes,
                                                         uint64_t minimum_free_disk_bytes, uint32_t bitrate);
+// 0 hardware, 1 software, 2 automatic (hardware preferred).
+__declspec(dllexport) long __cdecl ClipprConfigureEncoder(void* capture, int32_t mode);
 __declspec(dllexport) long __cdecl ClipprConfigureReplayOutput(void* capture,
                                                               const wchar_t* folder,
                                                               const wchar_t* extension);

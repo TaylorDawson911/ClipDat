@@ -195,7 +195,7 @@ public sealed class ClipprSettings
         if (VideoFormat is not ("mp4" or "mkv")) VideoFormat = "mp4";
         if (FilenameFormat is not ("ClipDat" or "Timestamp" or "Application")) FilenameFormat = "ClipDat";
         if (NotificationStyle is not ("Windows" or "ClipDat" or "None")) NotificationStyle = "Windows";
-        if (Encoder is not "MediaFoundationHardware") Encoder = "MediaFoundationHardware";
+        if (Encoder is not ("MediaFoundationHardware" or "MediaFoundationSoftware" or "MediaFoundationAuto")) Encoder = "MediaFoundationHardware";
         if (!ClipHotkey.TryParse(Hotkey, out _, out _)) Hotkey = "Ctrl+Shift+F10";
         if (ScreenshotHotkey is not ("Ctrl+Alt+F10" or "Ctrl+Alt+F9" or "Ctrl+Shift+F8")) ScreenshotHotkey = "Ctrl+Alt+F10";
         if (ScreenshotFormat is not ("png" or "jpg")) ScreenshotFormat = "png";
@@ -250,7 +250,7 @@ public sealed class ClipprSettings
         if (CustomGameMappings.Any(pair => GameOrganisation.NormalizeExecutable(pair.Key) is null ||
             pair.Value is null || string.IsNullOrWhiteSpace(pair.Value.DisplayName) || pair.Value.DisplayName.Length > 80 ||
             GameOrganisation.SafeFolderName(pair.Value.FolderName) is null)) return "Correct the custom game mappings.";
-        if (Encoder is not "MediaFoundationHardware") return "Choose the supported Media Foundation hardware encoder.";
+        if (Encoder is not ("MediaFoundationHardware" or "MediaFoundationSoftware" or "MediaFoundationAuto")) return "Choose a supported H.264 encoder.";
         if (VideoFormat is not ("mp4" or "mkv")) return "Choose MP4 or MKV.";
         if (FilenameFormat is not ("ClipDat" or "Timestamp" or "Application")) return "Choose a supported filename format.";
         if (NotificationStyle is not ("Windows" or "ClipDat" or "None")) return "Choose a notification style.";

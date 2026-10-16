@@ -138,6 +138,9 @@ internal static class NativeCapture
     internal static extern int ClipprConfigureReplay(IntPtr capture, uint durationSeconds,
         ulong ramBytes, ulong diskBytes, ulong minimumFreeDiskBytes, uint bitrate);
 
+    [DllImport("ClipprCapture.dll", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern int ClipprConfigureEncoder(IntPtr capture, int mode);
+
     [DllImport("ClipprCapture.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
     internal static extern int ClipprConfigureReplayOutput(IntPtr capture, string folder, string extension);
 

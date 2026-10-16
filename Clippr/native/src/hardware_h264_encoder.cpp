@@ -69,13 +69,14 @@ public:
     }
 };
 
-class MfHardwareH264Encoder final : public IVideoEncoder {
+class MfH264Encoder final : public IVideoEncoder {
     VideoEncodingConfig config_{};
     ComPtr<ID3D11VideoDevice> video_device_;
     ComPtr<ID3D11VideoContext> video_context_;
     ComPtr<ID3D11VideoProcessorEnumerator> enumerator_;
     ComPtr<ID3D11VideoProcessor> processor_;
     ComPtr<ID3D11Device> device_;
+    ComPtr<ID3D11Texture2D> staging_texture_;
     UINT input_width_{};
     UINT input_height_{};
     ComPtr<IMFDXGIDeviceManager> manager_;
@@ -89,16 +90,19 @@ class MfHardwareH264Encoder final : public IVideoEncoder {
     bool finished_{};
     bool mf_started_{};
     int stage_{};
+    bool hardware_{};
 
 public:
-    ~MfHardwareH264Encoder() override {
+    ~MfH264Encoder() override {
         if (started_ && !finished_) (void)Finish();
         writer_.Reset();
         manager_.Reset();
         if (mf_started_) (void)MFShutdown();
     }
 
-    wchar_t const* Backend() const noexcept override { return L"Media Foundation hardware H.264"; }
+    wchar_t const* Backend() const noexcept override {
+        return hardware_ ? L"Media Foundation hardware H.264" : L"Media Foundation software H.264";
+    }
     int Stage() const noexcept override { return stage_; }
 
     HRESULT Initialize(ID3D11Device* device, VideoEncodingConfig config,
@@ -123,8 +127,12 @@ public:
         if (FAILED(hr = manager_->ResetDevice(device, reset_token))) return hr;
         ComPtr<IMFAttributes> attributes;
         if (FAILED(hr = MFCreateAttributes(attributes.GetAddressOf(), 3))) return hr;
-        if (FAILED(hr = attributes->SetUnknown(MF_SINK_WRITER_D3D_MANAGER, manager_.Get()))) return hr;
-        if (FAILED(hr = attributes->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, TRUE))) return hr;
+        if (config.mode == H264EncoderMode::hardware) {
+            if (FAILED(hr = attributes->SetUnknown(MF_SINK_WRITER_D3D_MANAGER, manager_.Get()))) return hr;
+            if (FAILED(hr = attributes->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, TRUE))) return hr;
+        } else {
+            if (FAILED(hr = attributes->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, FALSE))) return hr;
+        }
         ComPtr<IMFMediaType> output_type;
         if (FAILED(hr = MFCreateMediaType(output_type.GetAddressOf()))) return hr;
         if (FAILED(hr = output_type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video))) return hr;
@@ -181,7 +189,8 @@ public:
                 }
             }
         }
-        if (!hardware_encoder) return MF_E_TOPO_CODEC_NOT_FOUND;
+        if (hardware_encoder != (config.mode == H264EncoderMode::hardware)) return MF_E_TOPO_CODEC_NOT_FOUND;
+        hardware_ = hardware_encoder;
         if (FAILED(hr = writer_->BeginWriting())) return hr;
         started_ = true;
         return S_OK;
@@ -198,6 +207,7 @@ public:
         if (input_width_ != input_desc.Width || input_height_ != input_desc.Height) {
             processor_.Reset();
             enumerator_.Reset();
+            staging_texture_.Reset();
             D3D11_VIDEO_PROCESSOR_CONTENT_DESC desc{};
             desc.InputFrameFormat = D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE;
             desc.InputFrameRate = {config_.fps, 1};
@@ -254,11 +264,40 @@ public:
         stage_ = 6;
 
         ComPtr<IMFMediaBuffer> buffer;
-        if (FAILED(hr = MFCreateDXGISurfaceBuffer(__uuidof(ID3D11Texture2D), nv12.Get(), 0, FALSE,
-                                                   buffer.GetAddressOf()))) return hr;
-        DWORD max_length{};
-        if (FAILED(hr = buffer->GetMaxLength(&max_length))) return hr;
-        if (FAILED(hr = buffer->SetCurrentLength(max_length))) return hr;
+        if (hardware_) {
+            if (FAILED(hr = MFCreateDXGISurfaceBuffer(__uuidof(ID3D11Texture2D), nv12.Get(), 0, FALSE,
+                                                       buffer.GetAddressOf()))) return hr;
+            DWORD max_length{};
+            if (FAILED(hr = buffer->GetMaxLength(&max_length))) return hr;
+            if (FAILED(hr = buffer->SetCurrentLength(max_length))) return hr;
+        } else {
+            // The software MFT consumes system memory. Copy the GPU NV12 frame row by row,
+            // since a mapped staging texture can have a wider row pitch than the image.
+            D3D11_TEXTURE2D_DESC staging_desc = texture;
+            staging_desc.Usage = D3D11_USAGE_STAGING;
+            staging_desc.BindFlags = 0;
+            staging_desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+            if (!staging_texture_ &&
+                FAILED(hr = device_->CreateTexture2D(&staging_desc, nullptr, staging_texture_.GetAddressOf()))) return hr;
+            ComPtr<ID3D11DeviceContext> context;
+            device_->GetImmediateContext(context.GetAddressOf());
+            context->CopyResource(staging_texture_.Get(), nv12.Get());
+            D3D11_MAPPED_SUBRESOURCE mapped{};
+            if (FAILED(hr = context->Map(staging_texture_.Get(), 0, D3D11_MAP_READ, 0, &mapped))) return hr;
+            const DWORD size = config_.width * config_.height * 3 / 2;
+            hr = MFCreateMemoryBuffer(size, buffer.GetAddressOf());
+            BYTE* bytes{};
+            if (SUCCEEDED(hr)) hr = buffer->Lock(&bytes, nullptr, nullptr);
+            if (SUCCEEDED(hr)) {
+                auto* source = static_cast<BYTE const*>(mapped.pData);
+                for (uint32_t row = 0; row < config_.height * 3 / 2; ++row)
+                    std::memcpy(bytes + row * config_.width, source + row * mapped.RowPitch, config_.width);
+                (void)buffer->Unlock();
+                hr = buffer->SetCurrentLength(size);
+            }
+            context->Unmap(staging_texture_.Get(), 0);
+            if (FAILED(hr)) return hr;
+        }
         stage_ = 7;
         ComPtr<IMFSample> sample;
         if (FAILED(hr = MFCreateSample(sample.GetAddressOf()))) return hr;
@@ -284,29 +323,39 @@ public:
 
 } // namespace
 
-long CreateHardwareH264Encoder(ID3D11Device* device, VideoEncodingConfig config,
+long CreateH264Encoder(ID3D11Device* device, VideoEncodingConfig config,
                                std::wstring const& path,
                                std::unique_ptr<IVideoEncoder>& result) noexcept {
     result.reset();
     try {
-        auto encoder = std::make_unique<MfHardwareH264Encoder>();
-        const HRESULT hr = encoder->Initialize(device, config, path);
-        if (FAILED(hr)) return hr;
-        result = std::move(encoder);
-        return S_OK;
+        const auto requested_mode = config.mode;
+        HRESULT hr = MF_E_TOPO_CODEC_NOT_FOUND;
+        for (auto mode : {H264EncoderMode::hardware, H264EncoderMode::software}) {
+            if (requested_mode != H264EncoderMode::automatic && requested_mode != mode) continue;
+            config.mode = mode;
+            auto encoder = std::make_unique<MfH264Encoder>();
+            hr = encoder->Initialize(device, config, path);
+            if (SUCCEEDED(hr)) { result = std::move(encoder); return S_OK; }
+        }
+        return hr;
     } catch (...) { return E_OUTOFMEMORY; }
 }
 
-long CreateHardwareH264PacketEncoder(ID3D11Device* device, VideoEncodingConfig config,
+long CreateH264PacketEncoder(ID3D11Device* device, VideoEncodingConfig config,
                                      PacketCallback callback,
                                      std::unique_ptr<IVideoEncoder>& result) noexcept {
     result.reset();
     try {
-        auto encoder = std::make_unique<MfHardwareH264Encoder>();
-        const HRESULT hr = encoder->Initialize(device, config, {}, std::move(callback));
-        if (FAILED(hr)) return hr;
-        result = std::move(encoder);
-        return S_OK;
+        const auto requested_mode = config.mode;
+        HRESULT hr = MF_E_TOPO_CODEC_NOT_FOUND;
+        for (auto mode : {H264EncoderMode::hardware, H264EncoderMode::software}) {
+            if (requested_mode != H264EncoderMode::automatic && requested_mode != mode) continue;
+            config.mode = mode;
+            auto encoder = std::make_unique<MfH264Encoder>();
+            hr = encoder->Initialize(device, config, {}, callback);
+            if (SUCCEEDED(hr)) { result = std::move(encoder); return S_OK; }
+        }
+        return hr;
     } catch (...) { return E_OUTOFMEMORY; }
 }
 

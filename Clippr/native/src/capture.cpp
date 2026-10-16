@@ -159,6 +159,9 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
     bool encoding_stopping{};
     int64_t last_queued_timestamp{-1};
     clippr::encode::VideoEncodingConfig encoding_config{};
+    clippr::encode::H264EncoderMode encoder_mode{clippr::encode::H264EncoderMode::hardware};
+    std::atomic<int32_t> active_hardware_encoders{0};
+    std::atomic<int32_t> active_software_encoders{0};
     std::wstring encoding_path;
     std::atomic<int32_t> encoding_state{0};
     std::atomic<int32_t> encoding_error{0};
@@ -173,7 +176,6 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
     std::atomic<uint64_t> queue_latency_total_us{0};
     std::atomic<uint64_t> queue_latency_samples{0};
     std::atomic<uint64_t> queue_latency_max_us{0};
-    std::atomic<int32_t> active_encoder_count{0};
     clippr::core::ReplayLimits replay_limits{};
     std::shared_ptr<clippr::core::ReplayBuffer> replay_buffer;
     std::mutex replay_mutex;
@@ -657,7 +659,7 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
         if (!width || !height || (width & 1) || (height & 1)) return E_INVALIDARG;
         if (encoding_state != 0 && encoding_state != 3) return HRESULT_FROM_WIN32(ERROR_BUSY);
         if (encoding_thread.joinable()) return HRESULT_FROM_WIN32(ERROR_BUSY);
-        encoding_config = {width, height, fps, bitrate};
+        encoding_config = {width, height, fps, bitrate, encoder_mode};
         encoding_path = path;
         {
             std::scoped_lock queue_lock(encoding_mutex);
@@ -752,7 +754,7 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
             return;
         }
         std::unique_ptr<clippr::encode::IVideoEncoder> encoder;
-        const HRESULT initialize = clippr::encode::CreateHardwareH264Encoder(
+        const HRESULT initialize = clippr::encode::CreateH264Encoder(
             d3d.Get(), encoding_config, encoding_path, encoder);
         if (FAILED(initialize)) {
             encoding_error = initialize;
@@ -760,7 +762,8 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
             CoUninitialize();
             return;
         }
-        ++active_encoder_count;
+        const bool hardware_encoder = wcscmp(encoder->Backend(), L"Media Foundation hardware H.264") == 0;
+        if (hardware_encoder) ++active_hardware_encoders; else ++active_software_encoders;
         encoding_state = 2;
         const int64_t minimum_interval = 10'000'000LL / encoding_config.fps;
         int64_t last_encoded_time = -1;
@@ -802,7 +805,7 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
         }
         std::scoped_lock lock(encoding_mutex);
         encoding_queue.clear();
-        --active_encoder_count;
+        if (hardware_encoder) --active_hardware_encoders; else --active_software_encoders;
         encoder.reset();
         CoUninitialize();
     }
@@ -836,6 +839,17 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
         replay_bitrate = bitrate;
         if (state == CLIPPR_CAPTURE_RUNNING && replay_enabled.load()) StartReplay();
         return replay_error.load();
+    }
+
+    long ConfigureEncoder(int32_t mode) noexcept {
+        if (mode < 0 || mode > 2) return E_INVALIDARG;
+        std::scoped_lock capture_lock(mutex);
+        if (encoder_mode == static_cast<clippr::encode::H264EncoderMode>(mode)) return S_OK;
+        encoder_mode = static_cast<clippr::encode::H264EncoderMode>(mode);
+        // A direct recording keeps its current encoder until the next recording starts.
+        StopReplay();
+        if (state == CLIPPR_CAPTURE_RUNNING && replay_enabled.load()) StartReplay();
+        return replay_state == 3 ? replay_error.load() : S_OK;
     }
 
     long SetReplayEnabled(bool enabled) noexcept {
@@ -883,7 +897,7 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
         if (!width || !height) { replay_error = E_INVALIDARG; replay_state = 3; return; }
         {
             std::scoped_lock lock(replay_mutex);
-            replay_config = {width, height, 30, replay_bitrate};
+            replay_config = {width, height, 30, replay_bitrate, encoder_mode};
             replay_buffer = std::make_shared<clippr::core::ReplayBuffer>(replay_limits);
             replay_queue.clear();
             replay_stopping = false;
@@ -927,7 +941,7 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
         std::unique_ptr<clippr::encode::IVideoEncoder> encoder;
         std::shared_ptr<clippr::core::ReplayBuffer> buffer;
         { std::scoped_lock lock(replay_mutex); buffer = replay_buffer; }
-        const HRESULT init = clippr::encode::CreateHardwareH264PacketEncoder(
+        const HRESULT init = clippr::encode::CreateH264PacketEncoder(
             d3d.Get(), replay_config,
             [buffer, this](clippr::core::EncodedPacket&& packet) {
                 if (auto pushed = buffer->push(std::move(packet)); !pushed) {
@@ -936,7 +950,8 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
                 }
             }, encoder);
         if (FAILED(init)) { replay_error = init; replay_state = 3; CoUninitialize(); return; }
-        ++active_encoder_count;
+        const bool hardware_encoder = wcscmp(encoder->Backend(), L"Media Foundation hardware H.264") == 0;
+        if (hardware_encoder) ++active_hardware_encoders; else ++active_software_encoders;
         replay_state = 2;
         for (;;) {
             QueuedFrame queued;
@@ -956,7 +971,7 @@ struct CaptureComponent final : std::enable_shared_from_this<CaptureComponent> {
         }
         const HRESULT finish = static_cast<HRESULT>(encoder->Finish());
         if (FAILED(finish) && replay_state != 3) { replay_error = finish; replay_state = 3; }
-        --active_encoder_count;
+        if (hardware_encoder) --active_hardware_encoders; else --active_software_encoders;
         encoder.reset();
         CoUninitialize();
     }
@@ -1407,7 +1422,8 @@ extern "C" ClipprEncodingStatus __cdecl ClipprGetEncodingStatus(void* capture) {
                 ? component.write_latency_total_us.load(std::memory_order_relaxed) /
                     component.write_latency_samples.load(std::memory_order_relaxed) : 0,
             component.write_latency_max_us.load(std::memory_order_relaxed),
-            component.active_encoder_count.load(std::memory_order_relaxed) > 0 ? 1 : 0,
+            (component.active_hardware_encoders.load(std::memory_order_relaxed) ? 1 : 0) |
+            (component.active_software_encoders.load(std::memory_order_relaxed) ? 2 : 0),
             component.queue_latency_samples.load(std::memory_order_relaxed)
                 ? component.queue_latency_total_us.load(std::memory_order_relaxed) /
                     component.queue_latency_samples.load(std::memory_order_relaxed) : 0,
@@ -1420,6 +1436,11 @@ extern "C" long __cdecl ClipprConfigureReplay(void* capture, uint32_t duration_s
     if (!capture) return E_POINTER;
     return static_cast<CaptureHandle*>(capture)->component->ConfigureReplay(
         duration_seconds, ram_bytes, disk_bytes, minimum_free_disk_bytes, bitrate);
+}
+
+extern "C" long __cdecl ClipprConfigureEncoder(void* capture, int32_t mode) {
+    if (!capture) return E_POINTER;
+    return static_cast<CaptureHandle*>(capture)->component->ConfigureEncoder(mode);
 }
 
 extern "C" long __cdecl ClipprConfigureReplayOutput(void* capture, wchar_t const* folder,

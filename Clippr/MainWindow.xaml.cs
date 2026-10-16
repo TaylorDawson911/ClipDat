@@ -313,6 +313,13 @@ namespace Clippr
         private static uint GetReplayRetentionSeconds(ClipprSettings settings) =>
             (uint)settings.ClipLengthSeconds;
 
+        private static int EncoderMode(string encoder) => encoder switch
+        {
+            "MediaFoundationSoftware" => 1,
+            "MediaFoundationAuto" => 2,
+            _ => 0
+        };
+
         private async Task ExecuteVoiceCommandAsync(string action)
         {
             if (_closing) return;
@@ -610,6 +617,7 @@ namespace Clippr
             var oldSource = _selectedSource;
             var oldDisplayName = _preferredDisplayName;
             var oldApplicationProcessId = _settings.PreferredApplicationProcessId;
+            var encoderChanged = _settings.Encoder != settings.Encoder;
             var replayChanged = _replaySeconds != (uint)settings.ClipLengthSeconds ||
                                 _replayRamMb != (ulong)settings.ReplayMemoryLimitMb ||
                                 _settings.QualityPreset != settings.QualityPreset ||
@@ -656,6 +664,11 @@ namespace Clippr
             ApplyAudioLevels();
 
             ConfigureNativeHotkey();
+            if (encoderChanged)
+            {
+                var encoderResult = await Task.Run(() => NativeCapture.ClipprConfigureEncoder(capture, EncoderMode(settings.Encoder)));
+                if (encoderResult < 0) Marshal.ThrowExceptionForHR(encoderResult);
+            }
             if (replayChanged)
             {
                 var replayResult = await Task.Run(() => NativeCapture.ClipprConfigureReplay(
@@ -785,6 +798,7 @@ namespace Clippr
                 var panel = ((WinRT.IWinRTObject)PreviewPanel).NativeObject.ThisPtr;
                 stage = "native graphics initialization";
                 Marshal.ThrowExceptionForHR(NativeCapture.ClipprCreateCapture(panel, width, height, out _capture));
+                Marshal.ThrowExceptionForHR(NativeCapture.ClipprConfigureEncoder(_capture, EncoderMode(_settings.Encoder)));
                 Marshal.ThrowExceptionForHR(NativeCapture.ClipprConfigureReplay(
                     _capture, GetReplayRetentionSeconds(_settings), _replayRamMb * 1024 * 1024, 8UL * 1024 * 1024 * 1024,
                     (ulong)_settings.MinimumFreeDiskSpaceGb * 1024 * 1024 * 1024, _recordingBitrate));
@@ -1436,7 +1450,13 @@ namespace Clippr
             _diagnosticCaptureFrames = capture.FramesPresented;
             _diagnosticReplayFrames = replay.FramesEncoded;
             var drops = encoding.FramesDropped + replay.FramesDropped;
-            var backend = encoding.ActiveEncoder != 0 ? "Media Foundation hardware H.264" : "Idle";
+            var backend = encoding.ActiveEncoder switch
+            {
+                1 => "Media Foundation hardware H.264",
+                2 => "Media Foundation software H.264",
+                3 => "Media Foundation hardware + software H.264",
+                _ => "Idle"
+            };
             var saveDuration = replay.SavesCompleted > 0 ? $"{replay.LastSaveDurationMs} ms" : "n/a";
             DiagnosticsMessage.Text =
                 $"Capture {captureFps:0.0} fps · Encoded {encodedFps:0.0} fps · Dropped {drops} · " +
@@ -1449,7 +1469,7 @@ namespace Clippr
         private void UpdateEncodingStatus()
         {
             var status = NativeCapture.ClipprGetEncodingStatus(_capture);
-            if (status.State == 1) EncodingMessage.Text = "Starting hardware encoder…";
+            if (status.State == 1) EncodingMessage.Text = "Starting H.264 encoder…";
             else if (status.State == 2)
                 EncodingMessage.Text = DetailedPreviewEnabled
                     ? $"Recording · {status.FramesEncoded} frames" +
@@ -1461,7 +1481,7 @@ namespace Clippr
                 _recording = false;
                 EncodingMessage.Text = status.ErrorCode switch
                 {
-                    unchecked((int)0xC00D5212) => "No compatible hardware H.264 encoder",
+                    unchecked((int)0xC00D5212) => "No compatible H.264 encoder for the selected mode",
                     unchecked((int)0xC00D36B4) => "This frame size or format cannot be encoded",
                     unchecked((int)0x887A0005) or unchecked((int)0x887A0007) =>
                         "Graphics device lost. Restart capture and try again",
