@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Replaced the white EXE setup flow with a branded WinUI setup wizard. Express, BareBones, and Custom now choose app and clips folders, review permissions, and apply supported settings. BareBones hides the in-app Clip Library and turns off optional features.
+
 - Saved capture source, display, and application choices made on the main screen. Restored the share test runner after it lost its package identity test dependency.
 
 - Consolidated recording bitrate and replay buffer configuration, removed duplicate native encoder setup, and kept test build artifacts in the native build directory.

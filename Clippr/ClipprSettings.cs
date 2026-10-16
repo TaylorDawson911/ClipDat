@@ -56,6 +56,7 @@ public sealed class ClipprSettings
     public string Hotkey { get; set; } = "Ctrl+Shift+F10";
     public string ScreenshotHotkey { get; set; } = "Ctrl+Alt+F10";
     public bool ScreenshotsEnabled { get; set; } = true;
+    public bool LibraryEnabled { get; set; } = true;
     public bool QuickShareEnabled { get; set; } = true;
     public string QuickShareMethod { get; set; } = "AnonMP4";
     public bool QuickShareAutoUpload { get; set; }

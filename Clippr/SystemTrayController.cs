@@ -63,6 +63,7 @@ internal sealed class SystemTrayController : IDisposable
     private readonly Func<bool> _capturePaused;
     private readonly Func<bool> _canSaveClip;
     private readonly Func<bool> _canTakeScreenshot;
+    private readonly Func<bool> _canOpenLibrary;
     private readonly Action<TrayCommand> _commandHandler;
     private readonly Action<bool> _powerHandler;
     private readonly Action _displayChangeHandler;
@@ -153,7 +154,7 @@ internal sealed class SystemTrayController : IDisposable
 
     public SystemTrayController(IntPtr window, DispatcherQueue dispatcher, string iconPath,
         Func<bool> minimizeToTray, Func<bool> capturePaused, Func<bool> canSaveClip,
-        Func<bool> canTakeScreenshot, Action<TrayCommand> commandHandler,
+        Func<bool> canTakeScreenshot, Func<bool> canOpenLibrary, Action<TrayCommand> commandHandler,
         Action<bool> powerHandler, Action displayChangeHandler, Action<bool> visibilityChangedHandler)
     {
         _window = window;
@@ -162,6 +163,7 @@ internal sealed class SystemTrayController : IDisposable
         _capturePaused = capturePaused;
         _canSaveClip = canSaveClip;
         _canTakeScreenshot = canTakeScreenshot;
+        _canOpenLibrary = canOpenLibrary;
         _commandHandler = commandHandler;
         _powerHandler = powerHandler;
         _displayChangeHandler = displayChangeHandler;
@@ -282,7 +284,7 @@ internal sealed class SystemTrayController : IDisposable
             AppendMenu(menu, MfString, (UIntPtr)CommandPauseResume,
                 _capturePaused() ? "Resume Capture" : "Pause Capture");
             AppendMenu(menu, MfString, (UIntPtr)CommandOpenFolder, "Open Clips Folder");
-            AppendMenu(menu, MfString, (UIntPtr)CommandLibrary, "Open Clip Library");
+            if (_canOpenLibrary()) AppendMenu(menu, MfString, (UIntPtr)CommandLibrary, "Open Clip Library");
             AppendMenu(menu, MfString, (UIntPtr)CommandSettings, "Settings");
             AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
             AppendMenu(menu, MfString, (UIntPtr)CommandExit, "Exit ClipDat");

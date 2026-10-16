@@ -120,6 +120,7 @@ public sealed partial class SettingsView : UserControl
         Add("Audio preview", "Audio", AudioPage, PreviewDesktopMeter, "levels meters");
 
         Add("Clip folder", "Output", OutputPage, ClipFolderBox, "storage location open clips");
+        Add("Show Clip Library", "Output", OutputPage, LibraryEnabledCheck, "browse manage clips library");
         Add("Clip length", "Output", OutputPage, ClipLengthCombo, "replay time duration custom seconds");
         Add("Replay memory limit", "Output", OutputPage, ReplayMemoryCombo, "buffer ram", true);
         Add("Quality preset", "Output", OutputPage, QualityCombo, "bitrate video");
@@ -353,6 +354,8 @@ public sealed partial class SettingsView : UserControl
         SelectTag(HotkeyCombo, _draft.Hotkey);
         SelectTag(ScreenshotFormatCombo, _draft.ScreenshotFormat);
         ScreenshotsEnabledCheck.IsOn = _draft.ScreenshotsEnabled;
+        LibraryEnabledCheck.IsOn = _draft.LibraryEnabled;
+        OpenClipLibrarySettingsButton.IsEnabled = _draft.LibraryEnabled;
         QuickShareEnabledCheck.IsOn = _draft.QuickShareEnabled;
         SelectTag(QuickShareMethodCombo, _draft.QuickShareMethod);
         SelectTag(QuickShareFailureCombo, _draft.QuickShareFailureAction);
@@ -465,6 +468,11 @@ public sealed partial class SettingsView : UserControl
         UnknownGameCombo.SelectionChanged += OnSettingChanged;
         OrganiseClipsCheck.Toggled += OnSettingChanged;
         ScreenshotsEnabledCheck.Toggled += OnSettingChanged;
+        LibraryEnabledCheck.Toggled += (_, _) =>
+        {
+            OpenClipLibrarySettingsButton.IsEnabled = LibraryEnabledCheck.IsOn;
+            OnSettingChanged(LibraryEnabledCheck, new RoutedEventArgs());
+        };
         QuickShareEnabledCheck.Toggled += OnSettingChanged;
         QuickShareMethodCombo.SelectionChanged += OnSettingChanged;
         QuickShareFailureCombo.SelectionChanged += OnSettingChanged;
@@ -1035,6 +1043,7 @@ public sealed partial class SettingsView : UserControl
         _draft.Hotkey = GetTag(HotkeyCombo);
         _draft.ScreenshotFormat = GetTag(ScreenshotFormatCombo);
         _draft.ScreenshotsEnabled = ScreenshotsEnabledCheck.IsOn;
+        _draft.LibraryEnabled = LibraryEnabledCheck.IsOn;
         _draft.QuickShareEnabled = QuickShareEnabledCheck.IsOn;
         _draft.QuickShareMethod = GetTag(QuickShareMethodCombo);
         _draft.QuickShareFailureAction = GetTag(QuickShareFailureCombo);

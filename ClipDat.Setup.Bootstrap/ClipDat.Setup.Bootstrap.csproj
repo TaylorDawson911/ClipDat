@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>ClipDat-Setup</AssemblyName>
+    <ApplicationIcon>..\Clippr\Assets\ClipprTray.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(SetupArchivePath)' != ''">
+    <EmbeddedResource Include="$(SetupArchivePath)" LogicalName="ClipDat.Setup.Bundle" />
+  </ItemGroup>
+</Project>

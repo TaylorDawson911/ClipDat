@@ -168,6 +168,7 @@ namespace Clippr
                 workArea.Y + (workArea.Height - windowHeight) / 2,
                 windowWidth, windowHeight));
             _settings = ClipprSettings.Load();
+            OpenLibraryButton.Visibility = _settings.LibraryEnabled ? Visibility.Visible : Visibility.Collapsed;
             ApplyPreviewDetailMode();
             HotkeyLabel.Text = $"Clip {_settings.Hotkey.Replace("+", " + ", StringComparison.Ordinal)} · Screenshot {_settings.ScreenshotHotkey.Replace("+", " + ", StringComparison.Ordinal)}";
             _replaySeconds = (uint)_settings.ClipLengthSeconds;
@@ -195,6 +196,7 @@ namespace Clippr
                     () => _capturePaused,
                     () => _capture != IntPtr.Zero && _clippingEnabled,
                     () => _capture != IntPtr.Zero && !_capturePaused && _activeSource == _selectedSource,
+                    () => _settings.LibraryEnabled,
                     OnTrayCommand, OnSystemPowerChanged, OnDisplayConfigurationChanged, OnTrayVisibilityChanged);
             }
             catch (Exception ex)
@@ -402,7 +404,7 @@ namespace Clippr
                     OnOpenClipsClick(OpenClipsButton, new RoutedEventArgs());
                     break;
                 case TrayCommand.OpenLibrary:
-                    OnOpenLibraryClick(OpenLibraryButton, new RoutedEventArgs());
+                    if (_settings.LibraryEnabled) OnOpenLibraryClick(OpenLibraryButton, new RoutedEventArgs());
                     break;
                 case TrayCommand.Settings:
                     RestoreFromTray();
@@ -639,6 +641,7 @@ namespace Clippr
             var wasScreenCapturing = _activeSource == CaptureSource.Screen;
             await ApplyStartupPreferenceAsync(settings.StartWithWindows);
             _settings = settings;
+            OpenLibraryButton.Visibility = settings.LibraryEnabled ? Visibility.Visible : Visibility.Collapsed;
             ShareClipMenuItem.Visibility = settings.QuickShareEnabled && _lastReplayPath is not null &&
                 string.Equals(_lastReplayPath, _lastSavedFilePath, StringComparison.OrdinalIgnoreCase)
                 ? Visibility.Visible : Visibility.Collapsed;

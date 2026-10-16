@@ -1,0 +1,36 @@
+<Window
+    x:Class="ClipDat.Setup.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid x:Name="Root" Background="#151D25" RowDefinitions="48,*,70">
+        <Grid x:Name="TitleBar" Grid.Row="0" Background="#1D2024" ColumnDefinitions="*,Auto">
+            <StackPanel Orientation="Horizontal" Spacing="10" Margin="20,0" VerticalAlignment="Center">
+                <Image Source="ms-appx:///Assets/ClipDatMark.png" Width="22" Height="22" />
+                <TextBlock Text="ClipDat Setup" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="White" />
+            </StackPanel>
+            <Border Grid.ColumnSpan="2" Height="2" Background="#2E98F0" VerticalAlignment="Bottom" />
+        </Grid>
+        <Grid Grid.Row="1" ColumnDefinitions="210,*">
+            <Border Background="#1D252E" BorderBrush="#34404C" BorderThickness="0,0,1,0">
+                <StackPanel Margin="20,28,16,16" Spacing="18">
+                    <TextBlock Text="SETUP" Foreground="#9BAAB9" FontSize="11" FontWeight="SemiBold" />
+                    <StackPanel x:Name="StepList" Spacing="8" />
+                </StackPanel>
+            </Border>
+            <Grid Grid.Column="1" RowDefinitions="Auto,*" Padding="30,25,30,18">
+                <StackPanel Spacing="5">
+                    <TextBlock x:Name="PageTitle" FontSize="27" FontWeight="SemiBold" Foreground="White" />
+                    <TextBlock x:Name="PageSubtitle" FontSize="13" Foreground="#AEBCC9" TextWrapping="Wrap" />
+                </StackPanel>
+                <ScrollViewer Grid.Row="1" Margin="0,20,0,0" VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="PageContent" Spacing="12" Padding="0,0,8,0" />
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+        <Grid Grid.Row="2" Background="#20262D" BorderBrush="#34404C" BorderThickness="0,1,0,0" ColumnDefinitions="*,Auto,Auto" Padding="24,0">
+            <TextBlock x:Name="FooterStatus" VerticalAlignment="Center" Foreground="#AEBCC9" FontSize="12" Text="Choose how you want to install ClipDat." />
+            <Button x:Name="BackButton" Grid.Column="1" Content="Back" MinWidth="86" Margin="0,0,10,0" VerticalAlignment="Center" Click="OnBackClick" />
+            <Button x:Name="NextButton" Grid.Column="2" Content="Next" MinWidth="126" VerticalAlignment="Center" Click="OnNextClick" Background="#146BC9" Foreground="White" />
+        </Grid>
+    </Grid>
+</Window>

@@ -2,13 +2,15 @@
 
 ## Windows EXE installer
 
-`installer/scripts/Build-ExeInstaller.ps1` publishes a self-contained, unpackaged x64 copy of ClipDat and wraps it in a per-user Inno Setup installer. It needs .NET 8, the native C++ build tools and pinned dependencies, and Inno Setup 6. Run from the repository root:
+`installer/scripts/Build-ExeInstaller.ps1` publishes ClipDat and its WinUI setup wizard, then packs them into one setup executable. The wizard offers Express, BareBones, and Custom. It asks for the app and clips folders in every mode, checks folder access, explains Windows capture and microphone permissions, and runs the underlying per-user file installer silently. The build needs .NET 8, the native C++ build tools and pinned dependencies, and Inno Setup 6. Run from the repository root:
 
 ```powershell
 & .\installer\scripts\Build-ExeInstaller.ps1
 ```
 
-The result is `installer/release/ClipDat-Setup-v<version>-x64.exe`. Double-click it to install; it creates a Start Menu shortcut and an optional desktop shortcut. Uninstall from Windows Installed Apps. The installer leaves clips, screenshots, and user settings intact. On first launch, the EXE build copies settings and share history from an existing ClipDat MSIX if the unpackaged locations are empty. It does not remove an existing MSIX; close or uninstall the old package before launching the EXE edition because ClipDat allows one running copy.
+The result is `installer/release/ClipDat-Setup-v<version>-x64.exe`. Double-click it to open the WinUI wizard. It creates a Start Menu shortcut and an optional desktop shortcut. Uninstall from Windows Installed Apps. The installer never deletes clips or screenshots. On an upgrade, the wizard can keep existing settings while changing the clips folder; otherwise the chosen mode applies its settings. The EXE build can migrate settings and share history from an existing ClipDat MSIX if the unpackaged locations are empty. It does not remove an existing MSIX; close or uninstall the old package before launching the EXE edition because ClipDat allows one running copy.
+
+BareBones turns off Clip Library, voice commands, screenshots, Quick Share, game folders and notifications in the app; core capture files remain installed. Custom walks through Features, Recording, Audio, Experience, Permissions and Review. The setup cannot grant Windows privacy permissions automatically. If microphone access is needed, the Permissions page links to Windows privacy settings; Windows may prompt for capture access when ClipDat first runs.
 
 This EXE is currently unsigned. Windows SmartScreen may warn on download or first launch. A trusted code-signing certificate is still needed to avoid that warning as reputation builds. The legacy MSIX release flow below remains available separately.
 
@@ -16,7 +18,7 @@ This EXE is currently unsigned. Windows SmartScreen may warn on download or firs
 
 The existing `Clippr/packaging/Build-Release.ps1` packages ClipDat as an MSIX with a Windows App SDK runtime dependency. Windows manages that package's installation, Start Menu registration, and updates. The EXE edition uses a separate unpackaged installation and does not upgrade or remove the MSIX. The standalone Clip Library remains an optional archive with its own installer and uninstaller script.
 
-`Start-Setup.ps1` provides a dark guided setup screen for Express, Minimal, and Custom installation. It applies supported first-run settings and invokes the real MSIX installer. WinForms cannot reproduce every rounded control and animation in the concept artwork; package reliability takes priority.
+`Start-Setup.ps1` remains available only for the legacy MSIX package flow. The EXE download uses the WinUI wizard above.
 
 ## Build locally
 
