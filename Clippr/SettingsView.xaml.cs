@@ -46,6 +46,7 @@ public sealed partial class SettingsView : UserControl
     private readonly ObservableCollection<GameMappingRow> _gameMappingRows = [];
     private sealed record GameMappingRow(string Executable, string Label);
     private readonly List<SettingSearchEntry> _settingSearchEntries = [];
+    private int _searchHighlightVersion;
     private sealed record SettingSearchEntry(string Title, string Section, ScrollViewer Page,
         FrameworkElement Target, string Keywords = "", bool Advanced = false)
     {
@@ -67,6 +68,7 @@ public sealed partial class SettingsView : UserControl
         ConfigureFeedback();
         _ready = true;
         Loaded += OnSettingsLoaded;
+        Unloaded += (_, _) => HideSearchHighlight();
         SaveSettingsButton.IsEnabled = ClipprSettings.LastLoadWasCorrupt;
         if (ClipprSettings.LastLoadWasCorrupt)
         {
@@ -188,6 +190,7 @@ public sealed partial class SettingsView : UserControl
 
     private async Task NavigateToSettingSearchResultAsync(SettingSearchEntry entry)
     {
+        HideSearchHighlight();
         SettingsSearchBox.IsSuggestionListOpen = false;
         SettingsSearchBox.Text = entry.Title;
         SettingsSearchEmptyText.Visibility = Visibility.Collapsed;
@@ -196,12 +199,61 @@ public sealed partial class SettingsView : UserControl
             .FirstOrDefault(candidate => candidate.Content?.ToString() == entry.Section);
         if (item is null) return;
         SettingsNavigation.SelectedItem = item;
+        var highlightVersion = ++_searchHighlightVersion;
         for (var attempt = 0; attempt < 20 && !ReferenceEquals(_currentPage, entry.Page); attempt++)
             await Task.Delay(25);
-        if (!ReferenceEquals(_currentPage, entry.Page)) return;
+        if (!ReferenceEquals(_currentPage, entry.Page) || highlightVersion != _searchHighlightVersion) return;
         entry.Page.UpdateLayout();
         entry.Target.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = true, VerticalAlignmentRatio = 0.25 });
         entry.Target.Focus(FocusState.Programmatic);
+        await Task.Delay(350);
+        if (highlightVersion != _searchHighlightVersion || !ReferenceEquals(_currentPage, entry.Page)) return;
+        PositionSearchHighlight(entry.Target);
+        if (SearchHighlightOutline.Visibility != Visibility.Visible) return;
+
+        void OnViewChanged(object? sender, ScrollViewerViewChangedEventArgs args) => PositionSearchHighlight(entry.Target);
+        entry.Page.ViewChanged += OnViewChanged;
+        try { await Task.Delay(4000); }
+        finally
+        {
+            entry.Page.ViewChanged -= OnViewChanged;
+            if (highlightVersion == _searchHighlightVersion) HideSearchHighlight();
+        }
+    }
+
+    private void PositionSearchHighlight(FrameworkElement target)
+    {
+        if (target.ActualWidth <= 0 || target.ActualHeight <= 0) return;
+        var bounds = target.TransformToVisual(SearchHighlightLayer).TransformBounds(
+            new Windows.Foundation.Rect(0, 0, target.ActualWidth, target.ActualHeight));
+        var left = Math.Max(0, bounds.X - 6);
+        var top = Math.Max(0, bounds.Y - 6);
+        var width = Math.Min(bounds.Width + 12, SearchHighlightLayer.ActualWidth - left);
+        var height = Math.Min(bounds.Height + 12, SearchHighlightLayer.ActualHeight - top);
+        if (width < 8 || height < 8 || bounds.Right < 0 || bounds.Bottom < 0)
+        {
+            SearchHighlightOutline.Visibility = Visibility.Collapsed;
+            SearchHighlightArrow.Visibility = Visibility.Collapsed;
+            return;
+        }
+        SearchHighlightOutline.Width = width;
+        SearchHighlightOutline.Height = height;
+        Canvas.SetLeft(SearchHighlightOutline, left);
+        Canvas.SetTop(SearchHighlightOutline, top);
+        SearchHighlightOutline.Visibility = Visibility.Visible;
+
+        var arrowLeft = left >= 34 ? left - 30 : left + width + 5;
+        SearchHighlightArrow.Visibility = arrowLeft + 25 <= SearchHighlightLayer.ActualWidth
+            ? Visibility.Visible : Visibility.Collapsed;
+        Canvas.SetLeft(SearchHighlightArrow, arrowLeft);
+        Canvas.SetTop(SearchHighlightArrow, top + Math.Max(0, (height - 30) / 2));
+    }
+
+    private void HideSearchHighlight()
+    {
+        _searchHighlightVersion++;
+        SearchHighlightOutline.Visibility = Visibility.Collapsed;
+        SearchHighlightArrow.Visibility = Visibility.Collapsed;
     }
 
     private void UpdateCaptureSourceLayout()
@@ -842,6 +894,7 @@ public sealed partial class SettingsView : UserControl
     private void OnNavigationSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         if (args.SelectedItem is not NavigationViewItem item) return;
+        HideSearchHighlight();
         _pendingPage = item.Tag?.ToString() switch
         {
             "Voice" => VoicePage,

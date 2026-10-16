@@ -660,6 +660,12 @@
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
+                <Canvas x:Name="SearchHighlightLayer" Grid.Row="1" IsHitTestVisible="False">
+                    <Border x:Name="SearchHighlightOutline" BorderBrush="#67BDFF" BorderThickness="3"
+                            CornerRadius="8" Background="#142E98F0" Visibility="Collapsed" />
+                    <TextBlock x:Name="SearchHighlightArrow" Text="→" FontSize="25" FontWeight="Bold"
+                               Foreground="#67BDFF" Visibility="Collapsed" />
+                </Canvas>
                 <Border Grid.Row="2" Background="#252A30" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
                         BorderThickness="0,1,0,0" Padding="24,10,28,12" MinHeight="68">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">

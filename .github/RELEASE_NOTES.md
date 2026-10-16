@@ -1,10 +1,10 @@
-## ClipDat v1.0.24
+## ClipDat v1.0.25
 
-Download `ClipDat-Setup-v1.0.24.0-x64.exe` and run it to install ClipDat for your Windows user account. The installer creates a Start Menu shortcut, offers an optional desktop shortcut, and can be removed from Windows Installed Apps.
+Download `ClipDat-Setup-v1.0.25.0-x64.exe` and run it to install ClipDat for your Windows user account. The installer creates a Start Menu shortcut, offers an optional desktop shortcut, and can be removed from Windows Installed Apps.
 
 ### Changes
 
-- Search across Settings from any tab. Results jump to the relevant setting, including advanced options.
+- Search results now point to the selected setting with a temporary outline and arrow.
 - The installer includes the app's runtime and preserves clips and settings when uninstalled.
 
 ### Upgrade and known limits
