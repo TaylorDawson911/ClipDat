@@ -1,12 +1,11 @@
-## ClipDat v1.0.23
+## ClipDat v1.0.24
 
-Download `ClipDat-Setup-v1.0.23.0-x64.exe` and run it to install ClipDat for your Windows user account. The installer creates a Start Menu shortcut, offers an optional desktop shortcut, and can be removed from Windows Installed Apps.
+Download `ClipDat-Setup-v1.0.24.0-x64.exe` and run it to install ClipDat for your Windows user account. The installer creates a Start Menu shortcut, offers an optional desktop shortcut, and can be removed from Windows Installed Apps.
 
 ### Changes
 
-- The main app now has a standard EXE installer. It includes the app's runtime and preserves clips and settings when uninstalled.
-- On first launch, this edition copies settings and share history from an existing ClipDat MSIX if its own data folders are empty.
-- Replay clips can be organised into game folders, with custom executable mappings. The Clip Library discovers game subfolders.
+- Search across Settings from any tab. Results jump to the relevant setting, including advanced options.
+- The installer includes the app's runtime and preserves clips and settings when uninstalled.
 
 ### Upgrade and known limits
 

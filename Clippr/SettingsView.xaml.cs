@@ -45,6 +45,12 @@ public sealed partial class SettingsView : UserControl
     private string _voiceCommandCategory = "All";
     private readonly ObservableCollection<GameMappingRow> _gameMappingRows = [];
     private sealed record GameMappingRow(string Executable, string Label);
+    private readonly List<SettingSearchEntry> _settingSearchEntries = [];
+    private sealed record SettingSearchEntry(string Title, string Section, ScrollViewer Page,
+        FrameworkElement Target, string Keywords = "", bool Advanced = false)
+    {
+        public override string ToString() => $"{Title}  ·  {Section}";
+    }
 
     public SettingsView(MainWindow mainWindow, ClipprSettings settings)
     {
@@ -56,6 +62,7 @@ public sealed partial class SettingsView : UserControl
         SettingsNavigation.RequestedTheme = ElementTheme.Dark;
         PopulateControls();
         WireEvents();
+        PopulateSettingSearchEntries();
         VersionText.Text = GetVersion();
         ConfigureFeedback();
         _ready = true;
@@ -73,6 +80,128 @@ public sealed partial class SettingsView : UserControl
             for (var segment = 0; segment < 16; segment++)
                 meter.Children.Add(new Border { Width = 7, Height = 13, CornerRadius = new CornerRadius(1), Background = new SolidColorBrush(ColorHelper.FromArgb(255, 46, 57, 69)) });
         _ = RefreshAppStorageUsageAsync();
+    }
+
+    private void PopulateSettingSearchEntries()
+    {
+        void Add(string title, string section, ScrollViewer page, FrameworkElement target,
+            string keywords = "", bool advanced = false) =>
+            _settingSearchEntries.Add(new(title, section, page, target, keywords, advanced));
+
+        Add("Capture mode", "Capture", CapturePage, CaptureModeCombo, "screen application source");
+        Add("Preferred display", "Capture", CapturePage, PreferredDisplayCombo, "monitor screen");
+        Add("Preferred application", "Capture", CapturePage, PreferredApplicationCombo, "window game");
+        Add("Start capture when ClipDat opens", "Capture", CapturePage, AutoCaptureCheck, "automatic recording launch");
+        Add("Start ClipDat when I sign in", "Capture", CapturePage, StartWithWindowsCheck, "startup windows launch");
+        Add("Minimize to notification area", "Capture", CapturePage, MinimizeToTrayCheck, "close tray background");
+        Add("Keep capture running while hidden", "Capture", CapturePage, KeepCaptureRunningWhileHiddenCheck, "recording tray");
+        Add("Minimum free disk space", "Capture", CapturePage, MinimumFreeSpaceCombo, "storage reserve");
+        Add("Recording health", "Capture", CapturePage, ReliabilityHealthStatus, "capture status disk space");
+        Add("Preview performance details", "Capture", CapturePage, ShowPreviewDiagnosticsCheck, "fps diagnostics", true);
+        Add("Recording resolution", "Capture", CapturePage, ResolutionCombo, "video size");
+        Add("Recording frame rate", "Capture", CapturePage, FrameRateCombo, "fps video");
+        Add("Video encoder", "Capture", CapturePage, EncoderCombo, "hardware h264 media foundation", true);
+
+        Add("Voice commands", "Voice Control", VoicePage, VoiceCommandsCheck, "speech recognition microphone");
+        Add("Wake phrase", "Voice Control", VoicePage, VoiceWakePhraseBox, "voice command keyword");
+        Add("Minimum confidence", "Voice Control", VoicePage, VoiceConfidenceCombo, "speech recognition");
+        Add("Command cooldown", "Voice Control", VoicePage, VoiceCooldownBox, "repeat delay");
+        Add("Available voice commands", "Voice Control", VoicePage, VoiceCommandSearchBox, "clip that screenshot start stop recording");
+
+        Add("Desktop audio", "Audio", AudioPage, DesktopAudioCheck, "system sound speakers");
+        Add("Output device", "Audio", AudioPage, OutputDeviceCombo, "desktop audio speakers");
+        Add("Microphone", "Audio", AudioPage, MicrophoneCheck, "input audio");
+        Add("Input device", "Audio", AudioPage, InputDeviceCombo, "microphone");
+        Add("Microphone volume", "Audio", AudioPage, SettingsMicrophoneVolumeSlider, "input level");
+        Add("Game audio application", "Audio", AudioPage, GameAudioCombo, "process sound", true);
+        Add("Chat audio application", "Audio", AudioPage, DiscordAudioCombo, "discord process sound", true);
+        Add("Audio preview", "Audio", AudioPage, PreviewDesktopMeter, "levels meters");
+
+        Add("Clip folder", "Output", OutputPage, ClipFolderBox, "storage location open clips");
+        Add("Clip length", "Output", OutputPage, ClipLengthCombo, "replay time duration custom seconds");
+        Add("Replay memory limit", "Output", OutputPage, ReplayMemoryCombo, "buffer ram", true);
+        Add("Quality preset", "Output", OutputPage, QualityCombo, "bitrate video");
+        Add("Replay video format", "Output", OutputPage, VideoFormatCombo, "mp4 mkv output type");
+        Add("Enable screenshots", "Output", OutputPage, ScreenshotsEnabledCheck, "capture image");
+        Add("Screenshot image format", "Output", OutputPage, ScreenshotFormatCombo, "png jpeg jpg quality");
+        Add("Copy screenshot to clipboard", "Output", OutputPage, CopyScreenshotCheck, "image");
+        Add("Screenshot sound", "Output", OutputPage, ScreenshotSoundCheck, "notification");
+        Add("Screenshot hotkey", "Output", OutputPage, ScreenshotHotkeyCombo, "shortcut keyboard");
+        Add("Filename format", "Output", OutputPage, FilenameFormatCombo, "naming timestamp");
+        Add("Clip saved sound", "Output", OutputPage, NotificationSoundCheck, "notification");
+        Add("Notification style", "Output", OutputPage, NotificationStyleCombo, "alerts", true);
+        Add("Global clipping hotkey", "Output", OutputPage, HotkeyCombo, "shortcut keyboard", true);
+        Add("Organise clips by game", "Output", OutputPage, OrganiseClipsCheck, "folders sorting");
+        Add("Game detection method", "Output", OutputPage, GameDetectionCombo, "application organisation");
+        Add("Unknown game destination", "Output", OutputPage, UnknownGameCombo, "folder organisation");
+        Add("Custom game mappings", "Output", OutputPage, GameMappingList, "executable folder organisation");
+
+        Add("Enable Quick Share", "Quick Share", QuickSharePage, QuickShareEnabledCheck, "upload link");
+        Add("Share method", "Quick Share", QuickSharePage, QuickShareMethodCombo, "anonmp4 clipboard link");
+        Add("Copy link after upload", "Quick Share", QuickSharePage, QuickShareAutoCopyCheck);
+        Add("Open video after upload", "Quick Share", QuickSharePage, QuickShareOpenAfterCheck);
+        Add("Show upload progress", "Quick Share", QuickSharePage, QuickShareProgressCheck);
+        Add("Show completion notification", "Quick Share", QuickSharePage, QuickShareNotificationCheck);
+        Add("Keep upload history", "Quick Share", QuickSharePage, QuickShareHistoryCheck);
+        Add("Automatically upload clips", "Quick Share", QuickSharePage, QuickShareAutoUploadCheck);
+        Add("Upload failure action", "Quick Share", QuickSharePage, QuickShareFailureCombo, "fallback error");
+
+        Add("App version", "Feedback", FeedbackPage, VersionText, "about clipdat");
+        Add("Copy diagnostic information", "Feedback", FeedbackPage, CopyDiagnosticsButton, "support logs", true);
+        Add("Open feedback page", "Feedback", FeedbackPage, OpenFeedbackButton, "support", true);
+    }
+
+    private List<SettingSearchEntry> FindSettingSearchMatches(string query)
+    {
+        var terms = query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (terms.Length == 0) return [];
+        return _settingSearchEntries
+            .Where(entry => terms.All(term =>
+                $"{entry.Title} {entry.Section} {entry.Keywords}".Contains(term, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(entry => entry.Title.StartsWith(query, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(entry => entry.Title)
+            .Take(12)
+            .ToList();
+    }
+
+    private void OnSettingsSearchTextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
+        var matches = FindSettingSearchMatches(sender.Text.Trim());
+        sender.ItemsSource = matches;
+        SettingsSearchEmptyText.Visibility = sender.Text.Trim().Length > 0 && matches.Count == 0
+            ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnSettingsSearchSuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
+    {
+        if (args.SelectedItem is SettingSearchEntry entry) _ = NavigateToSettingSearchResultAsync(entry);
+    }
+
+    private void OnSettingsSearchQuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        if (args.ChosenSuggestion is SettingSearchEntry entry)
+            _ = NavigateToSettingSearchResultAsync(entry);
+        else if (FindSettingSearchMatches(args.QueryText.Trim()).FirstOrDefault() is { } first)
+            _ = NavigateToSettingSearchResultAsync(first);
+    }
+
+    private async Task NavigateToSettingSearchResultAsync(SettingSearchEntry entry)
+    {
+        SettingsSearchBox.IsSuggestionListOpen = false;
+        SettingsSearchBox.Text = entry.Title;
+        SettingsSearchEmptyText.Visibility = Visibility.Collapsed;
+        if (entry.Advanced && !AdvancedToggle.IsOn) AdvancedToggle.IsOn = true;
+        var item = SettingsNavigation.MenuItems.OfType<NavigationViewItem>()
+            .FirstOrDefault(candidate => candidate.Content?.ToString() == entry.Section);
+        if (item is null) return;
+        SettingsNavigation.SelectedItem = item;
+        for (var attempt = 0; attempt < 20 && !ReferenceEquals(_currentPage, entry.Page); attempt++)
+            await Task.Delay(25);
+        if (!ReferenceEquals(_currentPage, entry.Page)) return;
+        entry.Page.UpdateLayout();
+        entry.Target.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = true, VerticalAlignmentRatio = 0.25 });
+        entry.Target.Focus(FocusState.Programmatic);
     }
 
     private void UpdateCaptureSourceLayout()

@@ -120,14 +120,22 @@
             </StackPanel>
         </NavigationView.PaneFooter>
         <NavigationView.Content>
-            <Grid x:Name="SettingsPages" RowDefinitions="*,Auto">
+            <Grid x:Name="SettingsPages" RowDefinitions="Auto,*,Auto">
                 <Grid.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#242A30" Offset="0" />
                         <GradientStop Color="#1E2023" Offset="1" />
                     </LinearGradientBrush>
                 </Grid.Background>
-                <ScrollViewer x:Name="CapturePage" Grid.Row="0" Margin="24,20,8,14" VerticalScrollBarVisibility="Auto">
+                <StackPanel Grid.Row="0" Margin="24,16,24,0" Spacing="4">
+                    <AutoSuggestBox x:Name="SettingsSearchBox" MaxWidth="480" HorizontalAlignment="Stretch"
+                                    PlaceholderText="Search settings…" QueryIcon="Find" AutomationProperties.Name="Search settings"
+                                    TextChanged="OnSettingsSearchTextChanged" SuggestionChosen="OnSettingsSearchSuggestionChosen"
+                                    QuerySubmitted="OnSettingsSearchQuerySubmitted" />
+                    <TextBlock x:Name="SettingsSearchEmptyText" Text="No matching settings." FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="Collapsed" />
+                </StackPanel>
+                <ScrollViewer x:Name="CapturePage" Grid.Row="1" Margin="24,20,8,14" VerticalScrollBarVisibility="Auto">
                     <StackPanel Spacing="16" Margin="0,0,16,0" HorizontalAlignment="Stretch">
                         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
                             <Border Width="58" Height="58" CornerRadius="14" Background="#263C55" BorderBrush="#3F6589" BorderThickness="1" VerticalAlignment="Center">
@@ -324,7 +332,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <ScrollViewer x:Name="VoicePage" Grid.Row="0" Margin="24,20,8,14" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                <ScrollViewer x:Name="VoicePage" Grid.Row="1" Margin="24,20,8,14" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                     <StackPanel Spacing="16" Margin="0,0,16,0" HorizontalAlignment="Stretch">
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16">
                             <Border Width="58" Height="58" CornerRadius="14" Background="#263C55" BorderBrush="#3F6589" BorderThickness="1" VerticalAlignment="Center">
@@ -417,7 +425,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <ScrollViewer x:Name="AudioPage" Grid.Row="0" Margin="24,20,8,14" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                <ScrollViewer x:Name="AudioPage" Grid.Row="1" Margin="24,20,8,14" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                     <StackPanel Spacing="16" Margin="0,0,16,0" HorizontalAlignment="Stretch">
                         <Grid ColumnDefinitions="58,*" ColumnSpacing="16">
                             <Border Width="58" Height="58" CornerRadius="14" Background="#263C55" BorderBrush="#3F6589" BorderThickness="1"><FontIcon Glyph="&#xE767;" FontFamily="Segoe Fluent Icons" FontSize="27" Foreground="White" /></Border>
@@ -458,7 +466,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <ScrollViewer x:Name="OutputPage" Grid.Row="0" Margin="24,20,8,14" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                <ScrollViewer x:Name="OutputPage" Grid.Row="1" Margin="24,20,8,14" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                     <StackPanel Spacing="16" Margin="0,0,16,0" HorizontalAlignment="Stretch">
                         <Grid ColumnDefinitions="58,*" ColumnSpacing="16">
                             <Border Width="58" Height="58" CornerRadius="14" Background="#263C55" BorderBrush="#3F6589" BorderThickness="1">
@@ -572,7 +580,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <ScrollViewer x:Name="QuickSharePage" Grid.Row="0" Margin="24,20,8,14" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                <ScrollViewer x:Name="QuickSharePage" Grid.Row="1" Margin="24,20,8,14" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                     <StackPanel Spacing="16" Margin="0,0,16,0" HorizontalAlignment="Stretch">
                         <Grid ColumnDefinitions="58,*" ColumnSpacing="16">
                             <Border Width="58" Height="58" CornerRadius="14" Background="#263C55" BorderBrush="#3F6589" BorderThickness="1">
@@ -624,7 +632,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <ScrollViewer x:Name="FeedbackPage" Grid.Row="0" Margin="24,20,8,14" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                <ScrollViewer x:Name="FeedbackPage" Grid.Row="1" Margin="24,20,8,14" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                     <StackPanel Spacing="16" Margin="0,0,16,0" HorizontalAlignment="Stretch">
                         <Grid ColumnDefinitions="58,*" ColumnSpacing="16">
                             <Border Width="58" Height="58" CornerRadius="14" Background="#263C55" BorderBrush="#3F6589" BorderThickness="1">
@@ -652,7 +660,7 @@
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
-                <Border Grid.Row="1" Background="#252A30" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                <Border Grid.Row="2" Background="#252A30" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
                         BorderThickness="0,1,0,0" Padding="24,10,28,12" MinHeight="68">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                         <TextBlock x:Name="SettingsStatus" Text="Settings loaded · no changes to save." Foreground="{ThemeResource TextFillColorSecondaryBrush}"
