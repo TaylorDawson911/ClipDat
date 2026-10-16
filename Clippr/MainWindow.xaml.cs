@@ -138,6 +138,15 @@ namespace Clippr
         [DllImport("user32.dll", ExactSpelling = true)]
         private static extern bool MessageBeep(uint type);
 
+        private const uint WdaNone = 0;
+        private const uint WdaExcludeFromCapture = 0x11;
+
+        [DllImport("user32.dll", ExactSpelling = true, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetWindowDisplayAffinity(IntPtr window, uint affinity);
+
+        private bool _hideClipDatFromCapture;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -190,6 +199,13 @@ namespace Clippr
             UpdateClippingButton(false);
             ExtendsContentIntoTitleBar = true;
             SetTitleBar(TitleBar);
+            if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041))
+                ApplyWindowCaptureVisibility(true);
+            else
+            {
+                GhostCaptureButton.IsEnabled = false;
+                ToolTipService.SetToolTip(GhostCaptureButton, "Requires Windows 10 version 2004 or newer");
+            }
             AppWindow.Changed += (_, _) => UpdateSettingsPosition();
             SettingsButton.Loaded += (_, _) => UpdateSettingsPosition();
             PreviewPanel.Loaded += OnPreviewLoaded;
@@ -2540,7 +2556,29 @@ namespace Clippr
         private void UpdateSettingsPosition()
         {
             var scale = SettingsButton.XamlRoot?.RasterizationScale ?? 1;
-            SettingsButton.Margin = new Thickness(0, 0, AppWindow.TitleBar.RightInset / scale, 0);
+            TitleBarActions.Margin = new Thickness(0, 0, AppWindow.TitleBar.RightInset / scale, 0);
+        }
+
+        private void OnGhostCaptureClick(object sender, RoutedEventArgs e) =>
+            ApplyWindowCaptureVisibility(!_hideClipDatFromCapture);
+
+        private void ApplyWindowCaptureVisibility(bool hide)
+        {
+            if (!SetWindowDisplayAffinity(WinRT.Interop.WindowNative.GetWindowHandle(this),
+                    hide ? WdaExcludeFromCapture : WdaNone))
+            {
+                LocalReliabilityLog.Error("capture-window-visibility", Marshal.GetHRForLastWin32Error());
+                ToolTipService.SetToolTip(GhostCaptureButton, "Windows could not change capture visibility");
+                return;
+            }
+
+            _hideClipDatFromCapture = hide;
+            GhostCaptureButton.Background = new SolidColorBrush(hide
+                ? ColorHelper.FromArgb(255, 25, 62, 97)
+                : ColorHelper.FromArgb(0, 0, 0, 0));
+            var action = hide ? "Show ClipDat in recordings" : "Hide ClipDat from recordings";
+            ToolTipService.SetToolTip(GhostCaptureButton, action);
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(GhostCaptureButton, action);
         }
 
         private void OnScreenSourceClick(object sender, RoutedEventArgs e)
